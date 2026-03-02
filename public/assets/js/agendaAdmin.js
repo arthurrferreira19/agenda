@@ -10,6 +10,11 @@
     const viewWeekBtn = document.getElementById("viewWeek");
     const viewMonthBtn = document.getElementById("viewMonth");
 
+    // Mobile bottom nav
+    const aMViewDay = document.getElementById("aMViewDay");
+    const aMViewWeek = document.getElementById("aMViewWeek");
+    const aMViewMonth = document.getElementById("aMViewMonth");
+
     // Shells
     const weekDayShell = document.getElementById("weekDayShell");
     const monthShell = document.getElementById("monthShell");
@@ -31,6 +36,13 @@
     const modal = new bootstrap.Modal(modalEl);
     const modalTitle = document.getElementById("modalTitle");
     const modalErr = document.getElementById("modalErr");
+
+    // Slot modal (multi-event)
+    const modalSlotEl = document.getElementById("modalSlot");
+    const modalSlot = modalSlotEl ? new bootstrap.Modal(modalSlotEl) : null;
+    const slotTitle = document.getElementById("slotTitle");
+    const slotWhen = document.getElementById("slotWhen");
+    const slotList = document.getElementById("slotList");
 
     // Form fields
     const eventForm = document.getElementById("eventForm");
@@ -314,64 +326,100 @@
     // ---------- Render events on grid
     function renderEventsGrid(columns) {
         daysGrid.querySelectorAll(".event-card").forEach(el => el.remove());
-
         const base = viewMode === "DAY" ? startOfDay(cursorDate) : startOfWeek(cursorDate);
 
+        // Agrupa por (dia + hora) para exibir "N eventos" no mesmo slot
+        const slots = new Map();
+        const key = (dayIndex, hour) => `${dayIndex}::${hour}`;
+        for (let d = 0; d < columns; d++) for (let h = 0; h < 24; h++) slots.set(key(d, h), []);
+
         for (const ev of EVENTS) {
-            const start = new Date(ev.start);
-            const end = new Date(ev.end);
-
+            const s = new Date(ev.start);
+            const e = new Date(ev.end);
             for (let dayIndex = 0; dayIndex < columns; dayIndex++) {
-                const dayDate = addDays(base, dayIndex);
-                dayDate.setHours(0, 0, 0, 0);
+                const day0 = addDays(base, dayIndex);
+                day0.setHours(0, 0, 0, 0);
+                const day1 = new Date(day0);
+                day1.setHours(24, 0, 0, 0);
+                if (!(s < day1 && e > day0)) continue;
+                for (let h = 0; h < 24; h++) {
+                    const hs = new Date(day0); hs.setHours(h, 0, 0, 0);
+                    const he = new Date(day0); he.setHours(h + 1, 0, 0, 0);
+                    if (s < he && e > hs) slots.get(key(dayIndex, h))?.push(ev);
+                }
+            }
+        }
 
-                const dayEnd = new Date(dayDate);
-                dayEnd.setHours(24, 0, 0, 0);
+        for (let dayIndex = 0; dayIndex < columns; dayIndex++) {
+            const col = daysGrid.querySelector(`.day-col[data-day-index="${dayIndex}"]`);
+            if (!col) continue;
 
-                // evento não toca esse dia
-                if (!(start < dayEnd && end > dayDate)) continue;
-
-                const col = daysGrid.querySelector(`.day-col[data-day-index="${dayIndex}"]`);
-                if (!col) continue;
-
-                const segStart = start < dayDate ? dayDate : start;
-                const segEnd = end > dayEnd ? dayEnd : end;
-
-                const topMin = minutesSinceMidnight(segStart);
-                const endMin = minutesSinceMidnight(segEnd);
-                const durMin = Math.max(15, endMin - topMin);
-
-                const topPx = (topMin / 60) * HOUR_HEIGHT;
-                const heightPx = (durMin / 60) * HOUR_HEIGHT;
+            for (let h = 0; h < 24; h++) {
+                const list = slots.get(key(dayIndex, h)) || [];
+                if (!list.length) continue;
 
                 const card = document.createElement("div");
                 card.className = "event-card";
-                card.style.top = `${topPx + 2}px`;
-                card.style.height = `${Math.max(28, heightPx - 4)}px`;
+                card.style.top = `${h * HOUR_HEIGHT + 2}px`;
+                card.style.height = `${HOUR_HEIGHT - 6}px`;
 
-                // cor por sala (MAXIMUM)
-                if (ev.eventType === "MAXIMUM" && ev.roomId) {
-                    const c = ROOM_COLOR.get(String(ev.roomId)) || "#7a1f3d";
-                    card.style.borderColor = "rgba(15,23,42,.14)";
-                    card.style.background = `linear-gradient(135deg, ${c}33, ${c}22)`;
+                if (list.length === 1) {
+                    const ev = list[0];
+                    const s = new Date(ev.start);
+                    const e = new Date(ev.end);
+                    const timeLabel = `${String(s.getHours()).padStart(2, "0")}:${String(s.getMinutes()).padStart(2, "0")}` +
+                        `–${String(e.getHours()).padStart(2, "0")}:${String(e.getMinutes()).padStart(2, "0")}`;
+                    card.innerHTML = `
+                      <div class="event-title">${esc(ev.title)}</div>
+                      <div class="event-time">${esc(timeLabel)} • ${esc(ev.eventType)}</div>
+                    `;
+                    card.addEventListener("click", () => openEdit(ev, isMineOrAdmin(ev)));
+                } else {
+                    card.innerHTML = `
+                      <div class="event-title">${list.length} eventos</div>
+                      <div class="event-time">${String(h).padStart(2, "0")}:00–${String(h + 1).padStart(2, "0")}:00 • clique para ver</div>
+                    `;
+                    card.addEventListener("click", () => openSlot(dayIndex, h, list));
                 }
-
-                const timeLabel =
-                    `${String(segStart.getHours()).padStart(2, "0")}:${String(segStart.getMinutes()).padStart(2, "0")}` +
-                    `–${String(segEnd.getHours()).padStart(2, "0")}:${String(segEnd.getMinutes()).padStart(2, "0")}`;
-
-                card.innerHTML = `
-          <div class="event-title">${esc(ev.title)}</div>
-          <div class="event-time">${esc(timeLabel)} • ${esc(ev.eventType)}</div>
-          <div class="event-meta">${esc(ev.description || "")}</div>
-        `;
-
-                card.addEventListener("click", () => openEdit(ev, isMineOrAdmin(ev)));
                 col.appendChild(card);
             }
         }
 
         if (window.lucide) lucide.createIcons();
+    }
+
+    function openSlot(dayIndex, hour, list) {
+        if (!modalSlot) return;
+        const base = viewMode === "DAY" ? startOfDay(cursorDate) : startOfWeek(cursorDate);
+        const day = addDays(base, dayIndex);
+        const hs = new Date(day); hs.setHours(hour, 0, 0, 0);
+        const he = new Date(hs); he.setHours(hour + 1, 0, 0, 0);
+
+        slotTitle.textContent = `${list.length} eventos`;
+        slotWhen.textContent = `${hs.toLocaleDateString("pt-BR")} • ${String(hour).padStart(2, "0")}:00–${String(hour + 1).padStart(2, "0")}:00`;
+        slotList.innerHTML = list
+            .slice()
+            .sort((a, b) => new Date(a.start) - new Date(b.start))
+            .map(ev => {
+                const s = new Date(ev.start);
+                const e = new Date(ev.end);
+                return `
+                  <button type="button" class="month-ev w-100 text-start" data-ev-id="${esc(ev.id)}">
+                    <div class="fw-semibold" style="line-height:1.05;">${esc(ev.title)}</div>
+                    <div class="small text-muted">${esc(s.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }))} - ${esc(e.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }))} • ${esc(ev.eventType)}</div>
+                  </button>
+                `;
+            }).join("");
+        modalSlot.show();
+
+        slotList.querySelectorAll("button[data-ev-id]").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const id = btn.getAttribute("data-ev-id");
+                const ev = list.find(x => String(x.id) === String(id));
+                modalSlot.hide();
+                if (ev) openEdit(ev, isMineOrAdmin(ev));
+            });
+        });
     }
 
     // ---------- Month view
@@ -405,7 +453,7 @@
                     ? (ROOM_COLOR.get(String(ev.roomId)) || "#7a1f3d")
                     : "#7a1f3d";
 
-                return `<div class="month-ev" data-eid="${esc(ev.id)}" style="background:${bg}22;border-color:${bg}33;">
+                return `<div class="month-ev" style="border-left:4px solid ${eventColor(ev)}" data-eid="${esc(ev.id)}" style="background:${bg}22;border-color:${bg}33;">
           ${esc(ev.title)}
         </div>`;
             }).join("");
@@ -556,40 +604,44 @@
         try {
             setBusy(btnSave, true);
 
-            if (!eventId.value) {
-                await API.request("/api/events", { method: "POST", auth: true, body: payload });
-            } else {
-                await API.request(`/api/events/${eventId.value}`, { method: "PUT", auth: true, body: payload });
+            const doSave = async (confirmConflicts) => {
+                const body = confirmConflicts ? { ...payload, confirmConflicts: true } : payload;
+                if (!eventId.value) {
+                    await API.request("/api/events", { method: "POST", auth: true, body });
+                } else {
+                    await API.request(`/api/events/${eventId.value}`, { method: "PUT", auth: true, body });
+                }
+            };
+
+            try {
+                await doSave(false);
+            } catch (err) {
+                if (err?.status === 409 && (err.data?.memberConflicts?.length || err.data?.conflict)) {
+                    const lines = [];
+                    if (err.data?.memberConflicts?.length) {
+                        const conflicts = err.data.memberConflicts;
+                        const nameById = new Map((MEMBERS || []).map(m => [String(m.id), m.name]));
+                        lines.push("Conflito de participantes:");
+                        conflicts.slice(0, 8).forEach(c => {
+                            const nm = nameById.get(String(c.memberId)) || `Membro ${String(c.memberId).slice(-6)}`;
+                            lines.push(`• ${nm}: ${c.title}`);
+                        });
+                        if (conflicts.length > 8) lines.push(`... +${conflicts.length - 8} outros`);
+                    }
+                    if (err.data?.conflict) {
+                        lines.push(`Sala ocupada: ${err.data.conflict.title}`);
+                    }
+                    const ok = confirm(`${err.message}\n\n${lines.join("\n")}\n\nDeseja salvar mesmo assim?`);
+                    if (!ok) return;
+                    await doSave(true);
+                } else {
+                    throw err;
+                }
             }
 
             modal.hide();
             await refresh();
         } catch (err) {
-            // ✅ Conflito de PARTICIPANTES
-            if (err.status === 409 && err.data?.memberConflicts?.length) {
-                const conflicts = err.data.memberConflicts;
-
-                const nameById = new Map((MEMBERS || []).map(m => [String(m.id), m.name]));
-                const lines = conflicts.slice(0, 10).map(c => {
-                    const nm = nameById.get(String(c.memberId)) || `Membro ${String(c.memberId).slice(-6)}`;
-                    const s = new Date(c.start).toLocaleString("pt-BR");
-                    const e = new Date(c.end).toLocaleString("pt-BR");
-                    return `• ${nm} já tem: "${c.title}" (${s} — ${e})`;
-                });
-
-                showModalError(`Conflito de agenda detectado:\n\n${lines.join("\n")}${conflicts.length > 10 ? `\n\n(+${conflicts.length - 10} conflitos)` : ""}`);
-                return;
-            }
-
-            // ✅ Conflito de SALA
-            if (err.status === 409 && err.data?.conflict) {
-                const c = err.data.conflict;
-                const s = new Date(c.start).toLocaleString("pt-BR");
-                const e = new Date(c.end).toLocaleString("pt-BR");
-                showModalError(`Sala ocupada neste intervalo.\nConflito: "${c.title}" (${s} — ${e})`);
-                return;
-            }
-
             showModalError(err.message || "Erro ao salvar evento.");
         } finally {
             setBusy(btnSave, false);
@@ -618,6 +670,10 @@
         viewDayBtn.classList.toggle("active", viewMode === "DAY");
         viewWeekBtn.classList.toggle("active", viewMode === "WEEK");
         viewMonthBtn.classList.toggle("active", viewMode === "MONTH");
+
+        aMViewDay?.classList.toggle("active", viewMode === "DAY");
+        aMViewWeek?.classList.toggle("active", viewMode === "WEEK");
+        aMViewMonth?.classList.toggle("active", viewMode === "MONTH");
     }
 
     function applyViewModeUI() {
@@ -629,6 +685,10 @@
     viewDayBtn.addEventListener("click", async () => { viewMode = "DAY"; applyViewModeUI(); await refresh(); });
     viewWeekBtn.addEventListener("click", async () => { viewMode = "WEEK"; applyViewModeUI(); await refresh(); });
     viewMonthBtn.addEventListener("click", async () => { viewMode = "MONTH"; applyViewModeUI(); await refresh(); });
+
+    aMViewDay?.addEventListener("click", async () => { viewMode = "DAY"; applyViewModeUI(); await refresh(); });
+    aMViewWeek?.addEventListener("click", async () => { viewMode = "WEEK"; applyViewModeUI(); await refresh(); });
+    aMViewMonth?.addEventListener("click", async () => { viewMode = "MONTH"; applyViewModeUI(); await refresh(); });
 
     btnToday.addEventListener("click", async () => { cursorDate = new Date(); await refresh(); });
 
@@ -694,4 +754,44 @@
         applyViewModeUI();
         await refresh();
     })().catch(err => alert(err.message || "Erro ao carregar agenda."));
-})();
+})()// ---------- Mobile / Colors ----------
+  const isMobile = () => window.matchMedia && window.matchMedia("(max-width: 991px)").matches;
+
+  const PALETTE = [
+    "#7a1f3d", "#a12b56", "#3b82f6", "#10b981", "#f59e0b",
+    "#8b5cf6", "#ef4444", "#14b8a6", "#0ea5e9", "#22c55e"
+  ];
+
+  function hashIdx(str, mod) {
+    const s = String(str || "");
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return mod ? (h % mod) : h;
+  }
+
+  function getRoomColorById(id) {
+    if (!id) return null;
+    const r = ROOMS.find(x => String(x.id) === String(id));
+    return r?.color || null;
+  }
+
+  function hexToRgba(hex, a) {
+    const h = String(hex || "").replace("#", "").trim();
+    const full = h.length === 3 ? h.split("").map(x=>x+x).join("") : h;
+    if (full.length !== 6) return `rgba(122,31,61,${a||.18})`;
+    const r = parseInt(full.slice(0,2),16);
+    const g = parseInt(full.slice(2,4),16);
+    const b = parseInt(full.slice(4,6),16);
+    return `rgba(${r},${g},${b},${a ?? .18})`;
+  }
+
+  function eventColor(ev) {
+    // prioridade: sala
+    const roomColor = getRoomColorById(ev.roomId || ev.room || ev.room_id);
+    if (roomColor) return roomColor;
+
+    // sem sala: cor determinística por tipo/título
+    const key = `${ev.eventType || "EVENT"}::${ev.title || ""}`;
+    return PALETTE[hashIdx(key, PALETTE.length)];
+  }
+;

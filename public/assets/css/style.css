@@ -103,6 +103,77 @@ body {
     transform: translateY(0);
 }
 
+/* ---------- Auth (Login) ---------- */
+.auth-shell {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 26px 16px;
+    position: relative;
+    z-index: 1;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 520px;
+    padding: 22px 22px 18px;
+}
+
+.auth-head {
+    text-align: left;
+}
+
+.auth-title {
+    margin: 0;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+}
+
+.auth-sub {
+    color: var(--muted);
+}
+
+.input-icon {
+    position: relative;
+}
+
+.input-icon > svg,
+.input-icon > i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: .75;
+}
+
+.input-icon .form-control {
+    padding-left: 44px !important;
+}
+
+.btn-ghost {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    padding: 6px 8px;
+    border-radius: 12px;
+}
+
+.btn-ghost:hover {
+    background: rgba(15, 23, 42, .06);
+}
+
+.link-muted {
+    color: rgba(15, 23, 42, .60);
+    text-decoration: none;
+}
+
+.link-muted:hover {
+    color: var(--wine);
+}
+
 .icon-pill {
     width: 44px;
     height: 44px;
@@ -297,6 +368,50 @@ body {
     bottom: 14px;
 }
 
+/* bloco do usuário na sidebar (admin e user) */
+.sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 12px;
+    margin-top: 12px;
+    border-radius: 18px;
+    background: rgba(248, 250, 252, .75);
+    border: 1px solid rgba(15, 23, 42, .10);
+}
+
+.avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, rgba(122, 31, 61, .18), rgba(161, 43, 86, .10));
+    border: 1px solid rgba(122, 31, 61, .20);
+    font-weight: 900;
+}
+
+.sidebar-section {
+    margin-top: 12px;
+}
+
+.sidebar-label {
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: rgba(15, 23, 42, .55);
+    margin: 14px 10px 8px;
+}
+
+.badge-wine {
+    background: rgba(122, 31, 61, .12) !important;
+    color: rgba(15, 23, 42, .92) !important;
+    border: 1px solid rgba(122, 31, 61, .20) !important;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-weight: 800;
+}
+
 .main {
     margin-left: 280px;
     width: calc(100% - 280px);
@@ -304,6 +419,7 @@ body {
 }
 
 @media (max-width: 991px) {
+    /* padrão: sidebar vira topo (admin) */
     .sidebar {
         position: sticky;
         width: 100%;
@@ -320,6 +436,40 @@ body {
         position: static;
         margin-top: 12px;
     }
+
+    /* ✅ Área do usuário: esconder sidebar e mostrar apenas o grid */
+    body.user-agenda .sidebar {
+        display: none;
+    }
+
+    body.user-agenda .main {
+        padding: 14px;
+    }
+}
+
+/* Mobile topbar (user agenda) */
+.mobile-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 10px 12px;
+    margin: -6px -6px 12px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, .78);
+    border: 1px solid rgba(15, 23, 42, .10);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
+}
+
+.pill-brand {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    background: rgba(122, 31, 61, .10);
+    border: 1px solid rgba(122, 31, 61, .16);
 }
 
 /* ---------- Agenda Grid (Week) ---------- */
@@ -351,7 +501,7 @@ body {
 
 .cal-header .days {
     display: grid;
-    grid-template-columns: repeat(7, minmax(140px, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .cal-day-head {
@@ -396,7 +546,7 @@ body {
 .days-grid {
     position: relative;
     display: grid;
-    grid-template-columns: repeat(7, minmax(140px, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .day-col {
@@ -458,10 +608,50 @@ body {
 
 @media (max-width: 991px) {
 
+    /* No mobile, a agenda vira 1 coluna (sem scroll lateral) */
     .cal-header .days,
     .days-grid {
-        grid-template-columns: repeat(7, minmax(120px, 1fr));
+        grid-template-columns: 1fr;
     }
+}
+
+/* mobile: nunca gerar scroll lateral */
+@media (max-width: 575px) {
+    html, body {
+        overflow-x: hidden;
+    }
+    .admin-shell, .main {
+        overflow-x: hidden;
+    }
+}
+
+/* Bottom nav (mobile) */
+.mobile-bottomnav {
+    position: sticky;
+    bottom: 0;
+    z-index: 25;
+    margin: 12px -6px -6px;
+    padding: 10px 10px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, .82);
+    border: 1px solid rgba(15, 23, 42, .10);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 -10px 24px rgba(15, 23, 42, .06);
+}
+
+.mobile-bottomnav .navbtn {
+    flex: 1;
+    border: 1px solid rgba(15, 23, 42, .10);
+    background: rgba(248, 250, 252, .70);
+    border-radius: 14px;
+    padding: 10px 8px;
+    font-weight: 800;
+    font-size: .85rem;
+}
+
+.mobile-bottomnav .navbtn.active {
+    background: rgba(122, 31, 61, .14);
+    border-color: rgba(122, 31, 61, .22);
 }
 
 /* ---------- View Switch ---------- */
@@ -557,4 +747,84 @@ body {
 
 .month-ev:hover {
     transform: translateY(-1px);
+}
+
+/* -------------------- Mobile-first: Agenda do Usuário (sem scroll lateral) -------------------- */
+html, body { overflow-x: hidden; }
+
+.user-agenda .admin-shell,
+.user-agenda .main,
+.user-agenda .calendar-shell,
+.user-agenda .week-day-shell,
+.user-agenda .month-shell { min-width: 0; }
+
+@media (max-width: 991px) {
+  .user-agenda .sidebar { display: none !important; }
+  .user-agenda .main { padding: 12px; }
+
+  /* Topbar + bottomnav sempre visíveis */
+  .user-agenda .mobile-topbar { position: sticky; top: 0; z-index: 1020; }
+  .user-agenda .mobile-bottomnav { position: sticky; bottom: 0; z-index: 1020; }
+
+  /* Força grid em 1 coluna e impede overflow */
+  .user-agenda .cal-header { grid-template-columns: 56px 1fr !important; }
+  .user-agenda .calendar-shell { grid-template-columns: 56px 1fr !important; }
+  .user-agenda .days-grid { grid-template-columns: 1fr !important; }
+
+  /* Área rolável vertical (não horizontal) */
+  .user-agenda #weekDayShell { overflow-x: hidden; }
+  .user-agenda .days-grid { overflow-x: hidden; }
+
+  /* Cards maiores para toque */
+  .user-agenda .event-card { padding: 10px 12px; border-radius: 16px; }
+  .user-agenda .event-title { font-size: .92rem; }
+}
+
+/* Dot padrão (usado em mês/listas) */
+.dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+
+
+/* --- User agenda: week strip (mobile) --- */
+.week-strip{display:flex;gap:.5rem;overflow-x:auto;padding:.5rem .25rem;margin-top:.25rem;scrollbar-width:none;}
+.week-strip::-webkit-scrollbar{display:none;}
+.week-strip .wday{flex:0 0 auto;border:1px solid rgba(0,0,0,.08);background:#fff;border-radius:14px;padding:.5rem .65rem;min-width:64px;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.06);}
+.week-strip .wday .dow{font-size:.75rem;color:#6b7280;text-transform:capitalize;line-height:1;}
+.week-strip .wday .num{font-weight:800;font-size:1rem;line-height:1.1;}
+.week-strip .wday.active{border-color: rgba(122,31,61,.35);box-shadow:0 10px 24px rgba(122,31,61,.14);}
+.week-strip .wday.active .num{color:#7a1f3d;}
+
+@media (max-width: 991px){
+  body.user-agenda{overflow-x:hidden;}
+  body.user-agenda .admin-shell{overflow-x:hidden;}
+  body.user-agenda .calendar-shell{overflow-x:hidden;}
+  body.user-agenda .days-grid{overflow-x:hidden;}
+}
+
+
+/* --- Month view improvements (Google-like) --- */
+.month-cell{background:rgba(255,255,255,.55); transition: background .15s ease, box-shadow .15s ease, transform .15s ease;}
+.month-cell:hover{background:rgba(255,255,255,.82);}
+.month-top{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+.month-day{display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:999px;}
+.month-cell.is-today .month-day{background: rgba(37,99,235,.12); color: var(--accent);}
+.month-cell.selected{box-shadow: inset 0 0 0 2px rgba(122,31,61,.35); background: rgba(255,255,255,.90);}
+.month-spacer{display:inline-block; width:28px; height:28px;}
+.month-events{min-width:0;}
+.month-ev{display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:rgba(15,23,42,.03); border:1px solid rgba(15,23,42,.08);}
+.month-ev .txt{min-width:0;}
+.month-more{border:0; background:transparent; color:rgba(15,23,42,.6); font-weight:700; font-size:.78rem; padding:4px 2px; text-align:left;}
+.month-more:hover{color:var(--wine); text-decoration:underline;}
+.month-events.compact .month-ev{padding:6px 8px; border-radius:14px;}
+.month-events.compact .month-ev .dot{width:8px; height:8px;}
+.month-events.compact .month-ev .txt{font-size:.78rem;}
+@media (max-width: 991px){
+  .month-cell{min-height:92px; padding:8px;}
+  .month-head div, .month-hcell{padding:8px 6px; font-size:.72rem;}
+  .month-events{gap:6px;}
+  .month-ev{padding:6px 8px;}
+}
+@media (max-width: 420px){
+  .month-cell{min-height:86px; padding:7px;}
+  .month-day{width:26px;height:26px;}
+  .month-events.compact .month-ev .txt{font-size:.76rem;}
 }

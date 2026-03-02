@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Maximum Help | Login do Usuário</title>
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+<body>
+  <div class="floating-icons">
+    <div class="float-ic float-1" aria-hidden="true"><i data-lucide="calendar-days"></i></div>
+    <div class="float-ic float-2" aria-hidden="true"><i data-lucide="clock-4"></i></div>
+    <div class="float-ic float-3" aria-hidden="true"><i data-lucide="check-circle-2"></i></div>
+    <div class="float-ic float-4" aria-hidden="true"><i data-lucide="user"></i></div>
+  </div>
+
+  <div class="auth-shell">
+    <div class="auth-card glass fade-up">
+      <div class="auth-head">
+        <div class="brand-badge">
+          <span class="brand-dot"></span>
+          <span>Maximum Help</span>
+        </div>
+        <h1 class="auth-title mt-3">Área do Usuário</h1>
+        <p class="auth-sub mb-0">Entre com seu e-mail e senha para acessar sua agenda.</p>
+      </div>
+
+      <form id="loginForm" class="mt-4" autocomplete="on">
+        <div class="mb-3">
+          <label class="form-label">E-mail</label>
+          <div class="input-icon">
+            <i data-lucide="mail"></i>
+            <input class="form-control form-control-lg" type="email" id="email" placeholder="seuemail@empresa.com" required />
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Senha</label>
+          <div class="input-icon">
+            <i data-lucide="lock"></i>
+            <input class="form-control form-control-lg" type="password" id="password" placeholder="••••••••" required />
+            <button class="btn btn-sm btn-ghost" type="button" id="togglePass" aria-label="Mostrar/ocultar senha">
+              <i data-lucide="eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="remember">
+            <label class="form-check-label" for="remember">Lembrar de mim</label>
+          </div>
+          <a class="link-muted" href="/admin/login.html">Sou administrador</a>
+        </div>
+
+        <div id="loginErr" class="mt-3"></div>
+
+        <button class="btn btn-wine btn-lg w-100 mt-3" type="submit" id="btnLogin">
+          <span class="d-inline-flex align-items-center gap-2">
+            <i data-lucide="log-in"></i> Entrar
+          </span>
+        </button>
+
+        <div class="mt-4 small text-center text-muted">
+          Acesso permitido apenas para usuários com perfil <b>USER</b>.
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/icons.js"></script>
+  <script src="/assets/js/userLogin.js"></script>
+</body>
+</html>

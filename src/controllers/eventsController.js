@@ -106,10 +106,14 @@ async function listEvents(req, res) {
   const fromDt = new Date(from);
   const toDt = new Date(to);
 
-  const events = await Event.find({
+  const baseQuery = {
     start: { $lt: toDt },
     end: { $gt: fromDt }
-  }).sort({ start: 1 });
+  };
+
+  // ✅ Visibilidade (ajuste solicitado):
+  // Qualquer usuário autenticado enxerga todos os eventos no intervalo.
+  const events = await Event.find(baseQuery).sort({ start: 1 });
 
   res.json({ events: events.map(pickEvent) });
 }
@@ -123,7 +127,8 @@ async function createEvent(req, res) {
     eventType,
     roomId,
     clientAddress,
-    participants
+    participants,
+    confirmConflicts
   } = req.body;
 
   if (!title || !start || !end || !eventType) {
@@ -150,7 +155,7 @@ async function createEvent(req, res) {
   // ✅ conflito de participantes (inclui o criador também — evita ele marcar 2 coisas ao mesmo tempo)
   const memberIdsToCheck = uniqStrings([...part, String(createdBy)]);
   const memberConflicts = await findMemberConflicts({ start: s, end: e, memberIds: memberIdsToCheck });
-  if (memberConflicts.length) {
+  if (memberConflicts.length && !confirmConflicts) {
     return res.status(409).json({
       message: "Um ou mais participantes já possuem evento neste horário.",
       memberConflicts
@@ -176,7 +181,7 @@ async function createEvent(req, res) {
       end: { $gt: s }
     }).select("title start end");
 
-    if (conflict) {
+    if (conflict && !confirmConflicts) {
       return res.status(409).json({
         message: "Sala ocupada neste intervalo.",
         conflict: { title: conflict.title, start: conflict.start, end: conflict.end }
@@ -226,7 +231,8 @@ async function updateEvent(req, res) {
     eventType,
     roomId,
     clientAddress,
-    participants
+    participants,
+    confirmConflicts
   } = req.body;
 
   const ev = await Event.findById(id);
@@ -271,7 +277,7 @@ async function updateEvent(req, res) {
       excludeEventId: ev._id
     });
 
-    if (memberConflicts.length) {
+    if (memberConflicts.length && !confirmConflicts) {
       return res.status(409).json({
         message: "Um ou mais participantes já possuem evento neste horário.",
         memberConflicts
@@ -295,7 +301,7 @@ async function updateEvent(req, res) {
       end: { $gt: ev.start }
     }).select("title start end");
 
-    if (conflict) {
+    if (conflict && !confirmConflicts) {
       return res.status(409).json({
         message: "Sala ocupada neste intervalo.",
         conflict: { title: conflict.title, start: conflict.start, end: conflict.end }

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Maximum Help | Minha Agenda</title>
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+<body class="user-agenda">
+  <div class="admin-shell">
+    <div id="sidebarMount"></div>
+
+    <main class="main fade-up">
+      <!-- Mobile topbar (sidebar oculta no mobile) -->
+      <div class="mobile-topbar d-lg-none">
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center gap-2">
+            <span class="pill-brand">Maximum Help</span>
+            <span class="badge badge-wine">Agenda</span>
+          </div>
+          <button class="btn btn-sm btn-outline-secondary" id="btnLogoutMobile" type="button">
+            <span class="d-inline-flex align-items-center gap-2">
+              <i data-lucide="log-out"></i> Sair
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+          <h2 class="mh-title mb-1">Minha Agenda</h2>
+          <p class="mh-sub mb-0" id="rangeLabel">Carregando...</p>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <div class="view-pill btn-group" role="group" aria-label="visualização">
+            <button class="btn btn-sm btn-outline-secondary" id="viewDay">Dia</button>
+            <button class="btn btn-sm btn-outline-secondary active" id="viewWeek">Semana</button>
+            <button class="btn btn-sm btn-outline-secondary" id="viewMonth">Mês</button>
+          </div>
+
+          <button class="btn btn-outline-secondary" id="btnPrev">
+            <span class="d-inline-flex align-items-center gap-2">
+              <i data-lucide="chevron-left"></i> Anterior
+            </span>
+          </button>
+
+          <button class="btn btn-outline-secondary" id="btnToday">
+            <span class="d-inline-flex align-items-center gap-2">
+              <i data-lucide="dot"></i> Hoje
+            </span>
+          </button>
+
+          <button class="btn btn-outline-secondary" id="btnNext">
+            <span class="d-inline-flex align-items-center gap-2">
+              Próximo <i data-lucide="chevron-right"></i>
+            </span>
+          </button>
+
+          <button class="btn btn-wine" id="btnNewEvent">
+            <span class="d-inline-flex align-items-center gap-2">
+              <i data-lucide="plus"></i> Novo evento
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-3" id="stateShell"></div>
+
+      <!-- Week strip (mobile) -->
+      <div id="weekStrip" class="week-strip d-lg-none d-none"></div>
+
+      <!-- Week/Day shells -->
+      <div id="weekDayShell" class="mt-3">
+        <div class="cal-header">
+          <div class="left">Horário</div>
+          <div class="right" id="daysHeader"></div>
+        </div>
+
+        <div class="calendar-shell">
+          <div class="time-col" id="timeCol"></div>
+          <div class="days-grid" id="daysGrid"></div>
+        </div>
+
+        <div class="mt-2 small text-muted">
+          Dica: clique em um espaço vazio para criar um evento naquele horário.
+        </div>
+      </div>
+
+      <!-- Month shell -->
+      <div id="monthShell" class="mt-3 d-none">
+        <div class="month-grid">
+          <div class="month-head" id="monthHead"></div>
+          <div class="month-body" id="monthBody"></div>
+        </div>
+      </div>
+
+      <!-- Mobile bottom nav (sem scroll lateral) -->
+      <div class="mobile-bottomnav d-lg-none">
+        <div class="d-flex gap-2">
+          <button class="navbtn" id="mViewDay" type="button">Dia</button>
+          <button class="navbtn active" id="mViewWeek" type="button">Semana</button>
+          <button class="navbtn" id="mViewMonth" type="button">Mês</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal: Create/Edit -->
+  <div class="modal fade" id="modalEvent" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-sm-down modal-dialog-scrollable">
+      <div class="modal-content glass">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalEventTitle">Novo evento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <form id="eventForm">
+            <input type="hidden" id="eventId" />
+
+            <div class="row g-3">
+              <div class="col-md-7">
+                <label class="form-label">Título</label>
+                <input class="form-control" id="title" placeholder="Ex.: Reunião com cliente" required />
+              </div>
+              <div class="col-md-5">
+                <label class="form-label">Tipo</label>
+                <select class="form-select" id="eventType" required>
+                  <option value="MAXIMUM">Maximum (Sala)</option>
+                  <option value="PRESENCIAL">Presencial</option>
+                  <option value="ONLINE">Online</option>
+                </select>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Participantes</label>
+                <div class="glass p-2" style="border-radius:16px;">
+                  <div class="d-flex align-items-center gap-2 mb-2">
+                    <i data-lucide="users"></i>
+                    <input id="memberSearch" class="form-control" placeholder="Buscar membro..." />
+                  </div>
+                  <div id="membersList" style="max-height:180px; overflow:auto;" class="px-1"></div>
+                </div>
+                <div class="form-text text-secondary">Selecione quem participará do evento.</div>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Início</label>
+                <input class="form-control" type="datetime-local" id="start" required />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Fim</label>
+                <input class="form-control" type="datetime-local" id="end" required />
+              </div>
+
+              <div class="col-12 d-none" id="roomRow">
+                <label class="form-label">Sala (Maximum)</label>
+                <select class="form-select" id="roomId"></select>
+              </div>
+
+              <div class="col-12 d-none" id="addressRow">
+                <label class="form-label">Endereço do cliente (Presencial)</label>
+                <input class="form-control" id="clientAddress" placeholder="Rua, número, bairro, cidade..." />
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Descrição</label>
+                <textarea class="form-control" id="description" rows="4" placeholder="Detalhes do evento..."></textarea>
+              </div>
+            </div>
+
+            <div id="eventErr" class="mt-3"></div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-danger d-none" id="btnDeleteEvent" type="button">
+            <span class="d-inline-flex align-items-center gap-2">
+              <i data-lucide="trash-2"></i> Excluir
+            </span>
+          </button>
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
+          <button class="btn btn-wine" id="btnSaveEvent" type="button">
+            <span class="d-inline-flex align-items-center gap-2">
+              <i data-lucide="save"></i> Salvar
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Details -->
+  <div class="modal fade" id="modalDetails" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down modal-dialog-scrollable">
+      <div class="modal-content glass">
+        <div class="modal-header">
+          <h5 class="modal-title">Detalhes do evento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex align-items-start justify-content-between gap-3">
+            <div>
+              <div class="fw-semibold" id="dTitle">-</div>
+              <div class="small text-muted" id="dWhen">-</div>
+            </div>
+            <span class="badge badge-wine" id="dType">-</span>
+          </div>
+
+          <hr class="my-3"/>
+
+          <div class="small" id="dDesc">-</div>
+
+          <div class="mt-3 small text-muted" id="dExtra"></div>
+
+          <div class="alert alert-info mt-3 d-none" id="dMeet">
+            <div class="d-flex align-items-center justify-content-between gap-2">
+              <div class="small"><b>Link:</b> <span id="dMeetLink"></span></div>
+              <button class="btn btn-sm btn-outline-secondary" id="btnCopyMeet" type="button">
+                <span class="d-inline-flex align-items-center gap-1">
+                  <i data-lucide="copy"></i> Copiar
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-3 d-flex gap-2">
+            <button class="btn btn-wine w-100" id="btnEditFromDetails" type="button">
+              <span class="d-inline-flex align-items-center gap-2">
+                <i data-lucide="pencil"></i> Editar
+              </span>
+            </button>
+          </div>
+
+          <div class="mt-2 small text-muted" id="dPerm">-</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/user/partials/sidebarUser.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/icons.js"></script>
+  <script src="/assets/js/userAgenda.js"></script>
+</body>
+</html>

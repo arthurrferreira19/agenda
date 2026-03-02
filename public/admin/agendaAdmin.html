@@ -82,12 +82,21 @@
                     <div class="month-body" id="monthBody"></div>
                 </div>
             </div>
+
+            <!-- Mobile bottom nav -->
+            <div class="mobile-bottomnav d-lg-none">
+                <div class="d-flex gap-2">
+                    <button class="navbtn" id="aMViewDay" type="button">Dia</button>
+                    <button class="navbtn active" id="aMViewWeek" type="button">Semana</button>
+                    <button class="navbtn" id="aMViewMonth" type="button">Mês</button>
+                </div>
+            </div>
         </main>
     </div>
 
     <!-- Modal Evento -->
     <div class="modal fade" id="modalEvent" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-sm-down modal-dialog-scrollable">
             <div class="modal-content glass">
                 <div class="modal-header border-0">
                     <h5 class="modal-title fw-bold" id="modalTitle">Novo evento</h5>
@@ -227,6 +236,22 @@
                             <button class="btn btn-outline-danger d-none" type="button" id="btnDelete">Excluir</button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Slot Details (multi-event) -->
+    <div class="modal fade" id="modalSlot" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-sm-down modal-dialog-scrollable">
+            <div class="modal-content glass">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="slotTitle">Eventos</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-secondary small mb-2" id="slotWhen">-</div>
+                    <div id="slotList" class="d-grid gap-2"></div>
                 </div>
             </div>
         </div>
