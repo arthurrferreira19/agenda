@@ -29,6 +29,12 @@
                         <button class="btn btn-sm btn-outline-secondary" id="viewMonth">Mês</button>
                     </div>
 
+                    <select id="monthColsSelect" class="form-select form-select-sm month-cols-select" title="Dias por linha (Mês)">
+                        <option value="7">7 / linha</option>
+                        <option value="14">14 / linha</option>
+                        <option value="21">21 / linha</option>
+                    </select>
+
                     <button class="btn btn-outline-secondary" id="btnPrev">
                         <span class="d-inline-flex align-items-center gap-2">
                             <i data-lucide="chevron-left"></i> Anterior
@@ -70,7 +76,7 @@
             <!-- MONTH -->
             <div id="monthShell" class="d-none">
                 <div class="month-grid">
-                    <div class="month-head">
+                    <div class="month-head" id="monthHead">
                         <div>Seg</div>
                         <div>Ter</div>
                         <div>Qua</div>
@@ -96,7 +102,7 @@
 
     <!-- Modal Evento -->
     <div class="modal fade" id="modalEvent" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-sm-down modal-dialog-scrollable">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-event-dialog">
             <div class="modal-content glass">
                 <div class="modal-header border-0">
                     <h5 class="modal-title fw-bold" id="modalTitle">Novo evento</h5>
@@ -243,7 +249,7 @@
 
     <!-- Modal: Slot Details (multi-event) -->
     <div class="modal fade" id="modalSlot" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-sm-down modal-dialog-scrollable">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-event-dialog">
             <div class="modal-content glass">
                 <div class="modal-header">
                     <h5 class="modal-title fw-bold" id="slotTitle">Eventos</h5>

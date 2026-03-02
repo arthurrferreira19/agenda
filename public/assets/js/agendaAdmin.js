@@ -24,7 +24,9 @@
     const timeCol = document.getElementById("timeCol");
     const daysGrid = document.getElementById("daysGrid");
     const rangeLabel = document.getElementById("rangeLabel");
+    const monthHead = document.getElementById("monthHead");
     const monthBody = document.getElementById("monthBody");
+    const monthColsSelect = document.getElementById("monthColsSelect");
 
     // Nav buttons
     const btnPrev = document.getElementById("btnPrev");
@@ -126,6 +128,20 @@
         dt.setHours(0, 0, 0, 0);
         return dt;
     }
+
+
+function getMonthCols() {
+    const saved = Number(localStorage.getItem("mh_month_cols") || 7);
+    const allowed = [7, 14, 21];
+    return allowed.includes(saved) ? saved : 7;
+}
+
+function applyMonthCols(cols) {
+    try { localStorage.setItem("mh_month_cols", String(cols)); } catch (_) {}
+    if (monthShell) monthShell.style.setProperty("--month-cols", String(cols));
+    if (monthHead) monthHead.style.setProperty("--month-cols", String(cols));
+    if (monthBody) monthBody.style.setProperty("--month-cols", String(cols));
+}
 
     function startOfDay(d) {
         const dt = new Date(d);
@@ -426,6 +442,13 @@
     function buildMonth() {
         monthBody.innerHTML = "";
 
+        const cols = getMonthCols();
+        applyMonthCols(cols);
+        if (monthHead) {
+            const names = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+            monthHead.innerHTML = Array.from({ length: cols }, (_, i) => `<div>${names[i % 7]}</div>`).join("");
+        }
+
         const monthStart = startOfMonth(cursorDate);
         rangeLabel.textContent = monthStart.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
@@ -442,25 +465,32 @@
             const dayStart = new Date(dt); dayStart.setHours(0, 0, 0, 0);
             const dayEnd = new Date(dt); dayEnd.setHours(24, 0, 0, 0);
 
-            const dayEvents = EVENTS.filter(ev => {
+            const dayEventsAll = EVENTS.filter(ev => {
                 const s = new Date(ev.start);
                 const e = new Date(ev.end);
                 return s < dayEnd && e > dayStart;
-            }).slice(0, 4);
+            });
 
-            const evHtml = dayEvents.map(ev => {
-                const bg = (ev.eventType === "MAXIMUM" && ev.roomId)
-                    ? (ROOM_COLOR.get(String(ev.roomId)) || "#7a1f3d")
-                    : "#7a1f3d";
+            // Mês (admin): indicadores no lugar de títulos dentro do quadrinho
+            const maxMarkers = (window.innerWidth <= 991) ? 6 : 10;
+            const dayEvents = dayEventsAll.slice(0, maxMarkers);
+            const moreCount = Math.max(0, dayEventsAll.length - maxMarkers);
 
-                return `<div class="month-ev" style="border-left:4px solid ${eventColor(ev)}" data-eid="${esc(ev.id)}" style="background:${bg}22;border-color:${bg}33;">
-          ${esc(ev.title)}
-        </div>`;
+            const markersHtml = dayEvents.map(ev => {
+                const c = eventColor(ev);
+                const tip = `${new Date(ev.start).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} ${ev.title}`;
+                return `<span class="month-marker square" data-eid="${esc(ev.id)}" style="background:${c}" title="${esc(tip)}"></span>`;
             }).join("");
 
             cell.innerHTML = `
-        <div class="month-day">${dt.getDate()}</div>
-        <div class="month-events">${evHtml || ""}</div>
+        <div class="month-top">
+          <span class="month-day">${dt.getDate()}</span>
+          <span class="month-spacer"></span>
+        </div>
+        <div class="month-markers">
+          ${markersHtml || ""}
+          ${moreCount ? `<span class="month-count">+${moreCount}</span>` : ""}
+        </div>
       `;
 
             cell.addEventListener("dblclick", () => {
@@ -472,10 +502,11 @@
             monthBody.appendChild(cell);
         }
 
-        // click em evento do mês
-        monthBody.querySelectorAll(".month-ev").forEach(el => {
-            el.addEventListener("click", () => {
-                const eid = el.dataset.eid;
+        // click em indicador do mês
+        monthBody.querySelectorAll(".month-marker[data-eid]").forEach(el => {
+            el.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const eid = el.getAttribute("data-eid");
                 const ev = EVENTS.find(x => String(x.id) === String(eid));
                 if (!ev) return;
                 openEdit(ev, isMineOrAdmin(ev));

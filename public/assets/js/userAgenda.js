@@ -42,6 +42,7 @@
   const btnNext = document.getElementById("btnNext");
   const btnToday = document.getElementById("btnToday");
   const btnNewEvent = document.getElementById("btnNewEvent");
+  const monthColsSelect = document.getElementById("monthColsSelect");
 
   // Modals
   const modalEventEl = document.getElementById("modalEvent");
@@ -97,6 +98,20 @@
 
   // ---------- Mobile / Colors ----------
   const isMobile = () => window.matchMedia && window.matchMedia("(max-width: 991px)").matches;
+
+  function getMonthCols() {
+    const saved = Number(localStorage.getItem("mh_month_cols") || 7);
+    const allowed = [7, 14, 21];
+    return allowed.includes(saved) ? saved : 7;
+  }
+
+  function applyMonthCols(cols) {
+    try { localStorage.setItem("mh_month_cols", String(cols)); } catch (_) {}
+    if (monthShell) monthShell.style.setProperty("--month-cols", String(cols));
+    if (monthHead) monthHead.style.setProperty("--month-cols", String(cols));
+    if (monthBody) monthBody.style.setProperty("--month-cols", String(cols));
+  }
+
 
   const PALETTE = [
     "#7a1f3d", "#a12b56", "#3b82f6", "#10b981", "#f59e0b",
@@ -622,7 +637,9 @@ function renderWeekDay() {
     monthBody.innerHTML = "";
 
     const names = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-    monthHead.innerHTML = names.map(n => `<div class="month-hcell">${n}</div>`).join("");
+    const cols = getMonthCols();
+    applyMonthCols(cols);
+    monthHead.innerHTML = Array.from({ length: cols }, (_, i) => names[i % 7]).map(n => `<div class="month-hcell">${n}</div>`).join("");
 
     const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
     const firstWeekStart = startOfWeek(first);
@@ -632,6 +649,9 @@ function renderWeekDay() {
     const days = [];
     for (let d = new Date(firstWeekStart); d < lastWeekEnd; d = addDays(d, 1)) {
       days.push(new Date(d));
+    }
+    while (days.length % cols !== 0) {
+      days.push(addDays(days[days.length - 1], 1));
     }
 
     // mapa de eventos por dia
@@ -656,27 +676,31 @@ function renderWeekDay() {
 
       const cell = document.createElement("div");
 
-      const maxShow = isMobile() ? 2 : 3;
-      const moreCount = Math.max(0, evs.length - maxShow);
-      const showPlus = (!isMobile() && evs.length === 0); // só permite criar pelo dia quando NÃO há eventos (pedido)
+      // Mês: não renderiza títulos dentro do quadrinho (isso "quebra" o grid em telas menores).
+      // Em vez disso, mostra indicadores (bolinhas/quadradinhos) por evento/sala.
+      const maxMarkers = isMobile() ? 6 : 10;
+      const moreCount = Math.max(0, evs.length - maxMarkers);
+      const showPlus = (!isMobile() && evs.length === 0); // só permite criar pelo dia quando NÃO há eventos (desktop)
       const isToday = sameDay(d, new Date());
       const selected = (SELECTED_DAY_KEY && SELECTED_DAY_KEY === key);
 
       cell.className = `month-cell ${inMonth ? "" : "muted"} ${isToday ? "is-today" : ""} ${selected ? "selected" : ""}`;
+
+      const markersHtml = evs.slice(0, maxMarkers).map(ev => {
+        const c = eventColor(ev);
+        const roomName = (ROOMS.find(r => String(r.id) === String(ev.roomId || ev.room || ev.room_id))?.name) || "";
+        const tip = `${fmtTime(ev.start)} ${ev.title}${roomName ? ` • ${roomName}` : ""}`;
+        return `<span class="month-marker square" data-ev-id="${esc(ev.id)}" style="background:${c}" title="${esc(tip)}"></span>`;
+      }).join("");
 
       cell.innerHTML = `
         <div class="month-top">
           <span class="month-day">${d.getDate()}</span>
           ${showPlus ? `<button class="btn btn-sm btn-ghost month-add" type="button" title="Novo evento"><i data-lucide="plus"></i></button>` : `<span class="month-spacer"></span>`}
         </div>
-        <div class="month-events ${isMobile() ? "compact" : ""}">
-          ${evs.slice(0, maxShow).map(ev => `
-            <button type="button" class="month-ev" data-ev-id="${esc(ev.id)}" style="border-left:4px solid ${eventColor(ev)}" title="${esc(ev.title)}">
-              <span class="dot" style="background:${eventColor(ev)}"></span>
-              <span class="txt">${esc(fmtTime(ev.start))} ${esc(ev.title)}</span>
-            </button>
-          `).join("")}
-          ${moreCount ? `<button type="button" class="month-more">+${moreCount} mais</button>` : ""}
+        <div class="month-markers">
+          ${markersHtml || ""}
+          ${moreCount ? `<span class="month-count">+${moreCount}</span>` : ""}
         </div>
       `;
 
@@ -710,22 +734,14 @@ function renderWeekDay() {
         openDayDetails(d, evs);
       });
 
-      // clique em evento específico
-      Array.from(cell.querySelectorAll(".month-ev")).forEach((btn) => {
-        btn.addEventListener("click", (e) => {
+      // clique em indicador abre o evento (sem sair do grid)
+      Array.from(cell.querySelectorAll(".month-marker[data-ev-id]")).forEach((mk) => {
+        mk.addEventListener("click", (e) => {
           e.stopPropagation();
-          const id = btn.getAttribute("data-ev-id");
+          const id = mk.getAttribute("data-ev-id");
           const ev = EVENTS.find(x => String(x.id) === String(id));
           if (ev) openDetails(ev);
         });
-      });
-
-      // "+N mais" abre lista do dia
-      cell.querySelector(".month-more")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        SELECTED_DAY_KEY = key;
-        if (VIEW === "MONTH") buildMonth();
-        openDayDetails(d, evs);
       });
 
       monthBody.appendChild(cell);
@@ -1082,3 +1098,4 @@ function renderWeekDay() {
 
   init();
 })();
+  // monthColsSelect: (não encontrado ponto de inserção)

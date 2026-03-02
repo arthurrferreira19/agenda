@@ -34,7 +34,7 @@ app.use(
         styleSrcElem: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
         imgSrc: ["'self'", "data:"],
         fontSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
-        connectSrc: ["'self'"]
+        connectSrc: ["'self'", "https://cdn.jsdelivr.net", "https://unpkg.com"]
       }
     }
   })
