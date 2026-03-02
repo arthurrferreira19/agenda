@@ -1,0 +1,560 @@
+:root {
+    --bg: #f6f7fb;
+    --card: rgba(255, 255, 255, .78);
+    --stroke: rgba(15, 23, 42, .10);
+    --text: #0f172a;
+    --muted: rgba(15, 23, 42, .65);
+
+    --wine: #7a1f3d;
+    /* marsala/wine */
+    --wine-2: #a12b56;
+    /* highlight */
+    --accent: #2563eb;
+    /* azul suave para detalhes secundários */
+    --success: #16a34a;
+
+    --shadow: 0 18px 55px rgba(15, 23, 42, .10);
+    --shadow2: 0 10px 25px rgba(15, 23, 42, .08);
+    --radius: 22px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    color: var(--text);
+    background: radial-gradient(1200px 800px at 12% 18%, rgba(122, 31, 61, .14), transparent 55%),
+        radial-gradient(900px 700px at 92% 12%, rgba(37, 99, 235, .10), transparent 45%),
+        radial-gradient(900px 700px at 72% 82%, rgba(161, 43, 86, .08), transparent 55%),
+        var(--bg);
+    overflow-x: hidden;
+}
+
+.fade-up {
+    animation: fadeUp .65s ease both;
+}
+
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.glass {
+    background: var(--card);
+    border: 1px solid var(--stroke);
+    box-shadow: var(--shadow);
+    border-radius: var(--radius);
+    backdrop-filter: blur(10px);
+}
+
+.brand-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .55rem;
+    padding: .55rem .85rem;
+    border-radius: 999px;
+    background: rgba(122, 31, 61, .10);
+    border: 1px solid rgba(122, 31, 61, .18);
+}
+
+.brand-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 99px;
+    background: linear-gradient(135deg, var(--wine), var(--wine-2));
+    box-shadow: 0 0 0 4px rgba(122, 31, 61, .10);
+}
+
+.mh-title {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.mh-sub {
+    color: var(--muted);
+}
+
+.btn-wine {
+    background: linear-gradient(135deg, var(--wine), var(--wine-2));
+    border: none;
+    box-shadow: 0 12px 25px rgba(122, 31, 61, .22);
+}
+
+.btn-wine:hover {
+    filter: brightness(1.03);
+    transform: translateY(-1px);
+}
+
+.btn-wine:active {
+    transform: translateY(0);
+}
+
+.icon-pill {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: rgba(122, 31, 61, .09);
+    border: 1px solid rgba(122, 31, 61, .16);
+}
+
+.form-control,
+.form-select {
+    border-radius: 14px !important;
+    border: 1px solid rgba(15, 23, 42, .14) !important;
+    background: rgba(255, 255, 255, .9) !important;
+}
+
+.form-control:focus {
+    box-shadow: 0 0 0 .25rem rgba(122, 31, 61, .18) !important;
+    border-color: rgba(122, 31, 61, .35) !important;
+}
+
+.input-group-text {
+    border-radius: 14px !important;
+    border: 1px solid rgba(15, 23, 42, .14) !important;
+    background: rgba(248, 250, 252, .95) !important;
+}
+
+.floating-icons {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: .80;
+}
+
+.float-ic {
+    position: absolute;
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, .65);
+    border: 1px solid rgba(15, 23, 42, .10);
+    box-shadow: var(--shadow2);
+    backdrop-filter: blur(8px);
+    animation: floaty 6.2s ease-in-out infinite;
+}
+
+.float-ic svg {
+    opacity: .86;
+}
+
+@keyframes floaty {
+
+    0%,
+    100% {
+        transform: translateY(0) rotate(0deg);
+    }
+
+    50% {
+        transform: translateY(-10px) rotate(2deg);
+    }
+}
+
+.float-1 {
+    top: 10%;
+    left: 7%;
+    animation-delay: .2s;
+}
+
+.float-2 {
+    top: 18%;
+    right: 10%;
+    animation-delay: .9s;
+}
+
+.float-3 {
+    bottom: 18%;
+    left: 10%;
+    animation-delay: 1.3s;
+}
+
+.float-4 {
+    bottom: 12%;
+    right: 12%;
+    animation-delay: 2.0s;
+}
+
+.small-link {
+    color: rgba(15, 23, 42, .72);
+    text-decoration: none;
+}
+
+.small-link:hover {
+    color: var(--wine);
+}
+
+.hr-soft {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(15, 23, 42, .12), transparent);
+    border: none;
+}
+
+.alert-soft {
+    border-radius: 16px;
+    border: 1px solid rgba(122, 31, 61, .20);
+    background: rgba(122, 31, 61, .08);
+    color: rgba(15, 23, 42, .92);
+}
+
+@media (max-width: 991px) {
+    .float-ic {
+        display: none;
+    }
+}
+
+/* ---------- Layout Admin (Sidebar fixa) ---------- */
+.admin-shell {
+    min-height: 100vh;
+    display: flex;
+}
+
+.sidebar {
+    width: 280px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    padding: 18px 14px;
+    background: rgba(255, 255, 255, .78);
+    border-right: 1px solid rgba(15, 23, 42, .10);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 16px 40px rgba(15, 23, 42, .06);
+    z-index: 10;
+}
+
+.sidebar-brand {
+    padding: 14px 12px;
+    border-radius: 18px;
+    background: rgba(122, 31, 61, .08);
+    border: 1px solid rgba(122, 31, 61, .14);
+}
+
+.sidebar-title {
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    margin: 0;
+}
+
+.sidebar-sub {
+    color: rgba(15, 23, 42, .65);
+    font-size: .9rem;
+    margin: 0;
+}
+
+.nav-group-title {
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: rgba(15, 23, 42, .55);
+    margin: 14px 10px 8px;
+}
+
+.side-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    color: rgba(15, 23, 42, .82);
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: .18s ease;
+}
+
+.side-link:hover {
+    background: rgba(122, 31, 61, .08);
+    border-color: rgba(122, 31, 61, .16);
+    color: rgba(15, 23, 42, .92);
+}
+
+.side-link.active {
+    background: linear-gradient(135deg, rgba(122, 31, 61, .16), rgba(161, 43, 86, .10));
+    border-color: rgba(122, 31, 61, .22);
+}
+
+.side-footer {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+}
+
+.main {
+    margin-left: 280px;
+    width: calc(100% - 280px);
+    padding: 22px;
+}
+
+@media (max-width: 991px) {
+    .sidebar {
+        position: sticky;
+        width: 100%;
+        height: auto;
+        top: 0;
+    }
+
+    .main {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .side-footer {
+        position: static;
+        margin-top: 12px;
+    }
+}
+
+/* ---------- Agenda Grid (Week) ---------- */
+.calendar-shell {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    border: 1px solid rgba(15, 23, 42, .10);
+    border-radius: 18px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, .65);
+}
+
+.cal-header {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    border: 1px solid rgba(15, 23, 42, .10);
+    border-radius: 18px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, .65);
+    margin-bottom: 12px;
+}
+
+.cal-header .left {
+    padding: 10px 10px;
+    border-right: 1px solid rgba(15, 23, 42, .10);
+    color: rgba(15, 23, 42, .65);
+    font-size: .85rem;
+}
+
+.cal-header .days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(140px, 1fr));
+}
+
+.cal-day-head {
+    padding: 10px 12px;
+    border-right: 1px solid rgba(15, 23, 42, .08);
+}
+
+.cal-day-head:last-child {
+    border-right: 0;
+}
+
+.cal-day-head .dow {
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: rgba(15, 23, 42, .55);
+}
+
+.cal-day-head .date {
+    font-weight: 800;
+    letter-spacing: -.02em;
+}
+
+.time-col {
+    border-right: 1px solid rgba(15, 23, 42, .10);
+    background: rgba(248, 250, 252, .75);
+}
+
+.time-slot {
+    height: 48px;
+    /* 1 hora */
+    border-top: 1px solid rgba(15, 23, 42, .08);
+    padding: 6px 10px;
+    color: rgba(15, 23, 42, .55);
+    font-size: .80rem;
+}
+
+.time-slot:first-child {
+    border-top: 0;
+}
+
+.days-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(140px, 1fr));
+}
+
+.day-col {
+    position: relative;
+    border-right: 1px solid rgba(15, 23, 42, .08);
+}
+
+.day-col:last-child {
+    border-right: 0;
+}
+
+.hour-row {
+    height: 48px;
+    border-top: 1px solid rgba(15, 23, 42, .08);
+}
+
+.hour-row:first-child {
+    border-top: 0;
+}
+
+.event-card {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    border-radius: 14px;
+    padding: 10px 10px;
+    border: 1px solid rgba(122, 31, 61, .22);
+    background: linear-gradient(135deg, rgba(122, 31, 61, .16), rgba(161, 43, 86, .10));
+    box-shadow: 0 12px 26px rgba(15, 23, 42, .10);
+    overflow: hidden;
+    cursor: pointer;
+    transition: .18s ease;
+}
+
+.event-card:hover {
+    transform: translateY(-1px);
+}
+
+.event-title {
+    font-weight: 800;
+    font-size: .92rem;
+    line-height: 1.15;
+}
+
+.event-time {
+    margin-top: 4px;
+    font-size: .78rem;
+    color: rgba(15, 23, 42, .70);
+}
+
+.event-meta {
+    margin-top: 6px;
+    font-size: .78rem;
+    color: rgba(15, 23, 42, .65);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 991px) {
+
+    .cal-header .days,
+    .days-grid {
+        grid-template-columns: repeat(7, minmax(120px, 1fr));
+    }
+}
+
+/* ---------- View Switch ---------- */
+.view-pill {
+    border: 1px solid rgba(15, 23, 42, .12);
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, .7);
+}
+
+.view-pill .btn {
+    border: 0;
+    border-radius: 0;
+}
+
+.view-pill .btn.active {
+    background: rgba(122, 31, 61, .14) !important;
+    color: rgba(15, 23, 42, .92) !important;
+}
+
+/* ---------- Month Grid ---------- */
+.month-grid {
+    border: 1px solid rgba(15, 23, 42, .10);
+    border-radius: 18px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, .65);
+}
+
+.month-head {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: rgba(248, 250, 252, .75);
+    border-bottom: 1px solid rgba(15, 23, 42, .10);
+}
+
+.month-head div {
+    padding: 10px 12px;
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: rgba(15, 23, 42, .55);
+    border-right: 1px solid rgba(15, 23, 42, .08);
+}
+
+.month-head div:last-child {
+    border-right: 0;
+}
+
+.month-body {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+}
+
+.month-cell {
+    min-height: 130px;
+    padding: 10px 10px 12px;
+    border-right: 1px solid rgba(15, 23, 42, .08);
+    border-bottom: 1px solid rgba(15, 23, 42, .08);
+    position: relative;
+}
+
+.month-cell:nth-child(7n) {
+    border-right: 0;
+}
+
+.month-day {
+    font-weight: 800;
+    font-size: .9rem;
+    color: rgba(15, 23, 42, .85);
+}
+
+.month-cell.muted .month-day {
+    color: rgba(15, 23, 42, .40);
+}
+
+.month-events {
+    margin-top: 8px;
+    display: grid;
+    gap: 6px;
+}
+
+.month-ev {
+    border-radius: 12px;
+    padding: 6px 8px;
+    border: 1px solid rgba(122, 31, 61, .18);
+    background: rgba(122, 31, 61, .10);
+    font-size: .78rem;
+    cursor: pointer;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.month-ev:hover {
+    transform: translateY(-1px);
+}

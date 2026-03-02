@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Maximum Calendar | Agenda</title>
+
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+
+<body>
+    <div class="admin-shell">
+        <div id="sidebarMount"></div>
+
+        <main class="main fade-up">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div>
+                    <h2 class="mh-title mb-1">Agenda</h2>
+                    <p class="mh-sub mb-0" id="rangeLabel">Carregando...</p>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <div class="view-pill btn-group" role="group" aria-label="visualização">
+                        <button class="btn btn-sm btn-outline-secondary" id="viewDay">Dia</button>
+                        <button class="btn btn-sm btn-outline-secondary active" id="viewWeek">Semana</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="viewMonth">Mês</button>
+                    </div>
+
+                    <button class="btn btn-outline-secondary" id="btnPrev">
+                        <span class="d-inline-flex align-items-center gap-2">
+                            <i data-lucide="chevron-left"></i> Anterior
+                        </span>
+                    </button>
+                    <button class="btn btn-outline-secondary" id="btnToday">Hoje</button>
+                    <button class="btn btn-outline-secondary" id="btnNext">
+                        <span class="d-inline-flex align-items-center gap-2">
+                            Próximo <i data-lucide="chevron-right"></i>
+                        </span>
+                    </button>
+
+                    <button class="btn btn-wine text-white" data-bs-toggle="modal" data-bs-target="#modalEvent"
+                        id="btnNew">
+                        <span class="d-inline-flex align-items-center gap-2">
+                            <i data-lucide="plus"></i> Novo evento
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <hr class="hr-soft my-4" />
+
+            <!-- WEEK/DAY -->
+            <div id="weekDayShell">
+                <div class="cal-header">
+                    <div class="left d-flex align-items-center gap-2">
+                        <i data-lucide="clock"></i><span>Horário</span>
+                    </div>
+                    <div class="days" id="daysHeader"></div>
+                </div>
+
+                <div class="calendar-shell">
+                    <div class="time-col" id="timeCol"></div>
+                    <div class="days-grid" id="daysGrid"></div>
+                </div>
+            </div>
+
+            <!-- MONTH -->
+            <div id="monthShell" class="d-none">
+                <div class="month-grid">
+                    <div class="month-head">
+                        <div>Seg</div>
+                        <div>Ter</div>
+                        <div>Qua</div>
+                        <div>Qui</div>
+                        <div>Sex</div>
+                        <div>Sáb</div>
+                        <div>Dom</div>
+                    </div>
+                    <div class="month-body" id="monthBody"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Evento -->
+    <div class="modal fade" id="modalEvent" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content glass">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold" id="modalTitle">Novo evento</h5>
+                    <button class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body pt-0">
+                    <div id="modalErr" class="mb-3"></div>
+
+                    <form id="eventForm" class="needs-validation" novalidate>
+                        <input type="hidden" id="eventId" />
+
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Título</label>
+                                <input id="title" class="form-control" required />
+                                <div class="invalid-feedback">Informe o título.</div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Descrição / Observações</label>
+                                <textarea id="description" class="form-control" rows="2"
+                                    placeholder="Observações..."></textarea>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-semibold">Tipo de Evento</label>
+                                <select id="eventType" class="form-select" required>
+                                    <option value="MAXIMUM">Maximum</option>
+                                    <option value="PRESENCIAL">Presencial</option>
+                                    <option value="ONLINE">Online</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione o tipo.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6" id="roomWrap">
+                                <label class="form-label fw-semibold">Sala (Maximum)</label>
+                                <select id="roomId" class="form-select"></select>
+                                <div class="form-text text-secondary">Se a sala estiver ocupada no período, você será
+                                    avisado.</div>
+                            </div>
+
+                            <div class="col-12 d-none" id="addrWrap">
+                                <label class="form-label fw-semibold">Endereço do cliente (Presencial)</label>
+                                <input id="clientAddress" class="form-control"
+                                    placeholder="Rua, número, bairro, cidade..." />
+                            </div>
+
+                            <div class="col-12 d-none" id="onlineWrap">
+                                <div class="alert alert-soft mb-0">
+                                    Ao salvar, será gerado automaticamente um link (padrão Meet) e colocado nas
+                                    observações.
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Participantes</label>
+                                <div class="glass p-2" style="border-radius:16px;">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <i data-lucide="users"></i>
+                                        <input id="memberSearch" class="form-control" placeholder="Buscar membro..." />
+                                    </div>
+                                    <div id="membersList" style="max-height:180px; overflow:auto;" class="px-1"></div>
+                                </div>
+                                <div class="form-text text-secondary">Selecione os membros cadastrados.</div>
+                            </div>
+
+                            <!-- Recorrência -->
+                            <div class="col-12">
+                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <label class="form-label fw-semibold mb-0">Evento Recorrente?</label>
+
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="isRecurring">
+                                        <label class="form-check-label" for="isRecurring">Sim</label>
+                                    </div>
+                                </div>
+
+                                <div id="recurrenceWrap" class="mt-2 d-none">
+                                    <div class="row g-3">
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label fw-semibold">Frequência</label>
+                                            <select id="recurrenceFreq" class="form-select">
+                                                <option value="WEEKLY">Semanal</option>
+                                                <option value="BIWEEKLY">Quinzenal</option>
+                                                <option value="MONTHLY">Mensal</option>
+                                                <option value="QUARTERLY">Trimestral</option>
+                                                <option value="SEMIANNUAL">Semestral</option>
+                                                <option value="YEARLY">Anual</option>
+                                                <option value="CUSTOM">Data personalizada</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-12 col-md-6 d-none" id="customEveryWrap">
+                                            <label class="form-label fw-semibold">Repetir a cada (dias)</label>
+                                            <input id="customEveryDays" type="number" class="form-control" min="1"
+                                                max="365" value="7">
+                                            <div class="form-text text-secondary">Ex.: 10 = repete a cada 10 dias.</div>
+                                        </div>
+
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label fw-semibold">Até (data final)</label>
+                                            <input id="recurrenceUntil" type="date" class="form-control">
+                                            <div class="form-text text-secondary">Se vazio: cria no máximo 20
+                                                ocorrências.</div>
+                                        </div>
+
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label fw-semibold">Máximo de ocorrências</label>
+                                            <input id="recurrenceCount" type="number" class="form-control" min="1"
+                                                max="200" value="20">
+                                        </div>
+                                    </div>
+
+                                    <div class="alert alert-soft mt-3 mb-0">
+                                        A recorrência cria vários eventos automaticamente. Se houver conflito em
+                                        qualquer ocorrência, o sistema vai avisar.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-semibold">Início</label>
+                                <input id="start" type="datetime-local" class="form-control" required />
+                                <div class="invalid-feedback">Informe o início.</div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-semibold">Fim</label>
+                                <input id="end" type="datetime-local" class="form-control" required />
+                                <div class="invalid-feedback">Informe o fim.</div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid mt-4">
+                            <button class="btn btn-wine text-white" type="submit" id="btnSave">Salvar</button>
+                        </div>
+
+                        <div class="d-grid mt-2">
+                            <button class="btn btn-outline-danger d-none" type="button" id="btnDelete">Excluir</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script src="/assets/js/api.js"></script>
+    <script src="/admin/partials/sidebarAdmin.js"></script>
+    <script src="/assets/js/agendaAdmin.js"></script>
+</body>
+
+</html>

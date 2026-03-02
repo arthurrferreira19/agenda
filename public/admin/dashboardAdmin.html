@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Maximum Calendar | Dashboard Admin</title>
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/style.css" />
+</head>
+<body>
+  <div class="admin-shell">
+    <div id="sidebarMount"></div>
+
+    <main class="main fade-up">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+          <h2 class="mh-title mb-1">Dashboard</h2>
+          <p class="mh-sub mb-0" id="whoami">Carregando...</p>
+        </div>
+      </div>
+
+      <hr class="hr-soft my-4" />
+
+      <div class="row g-3">
+        <div class="col-12 col-md-4">
+          <div class="glass p-4">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i data-lucide="activity"></i><span class="fw-semibold">Status</span>
+            </div>
+            <div class="text-secondary">Dashboard base pronta. Próximo: KPIs e agenda.</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-8">
+          <div class="glass p-4">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i data-lucide="sparkles"></i><span class="fw-semibold">Atalhos</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+              <a class="btn btn-wine text-white" href="/admin/usersAdmin.html">
+                <span class="d-inline-flex align-items-center gap-2">
+                  <i data-lucide="users"></i> Gerenciar Usuários
+                </span>
+              </a>
+              <button class="btn btn-outline-secondary" disabled>
+                <span class="d-inline-flex align-items-center gap-2">
+                  <i data-lucide="calendar"></i> Agenda (em breve)
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="/assets/js/api.js"></script>
+  <script src="/admin/partials/sidebarAdmin.js"></script>
+  <script>
+    (function(){
+      const token = API.getToken();
+      if(!token){ location.href="/admin/login.html"; return; }
+      const user = JSON.parse(localStorage.getItem("mh_user") || "null");
+      document.getElementById("whoami").textContent = user
+        ? `${user.name} • ${user.email} • ${user.role}`
+        : "Sessão ativa";
+      if(window.lucide) lucide.createIcons();
+    })();
+  </script>
+</body>
+</html>
