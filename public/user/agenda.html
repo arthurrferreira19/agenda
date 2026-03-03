@@ -42,6 +42,15 @@
             <button class="btn btn-sm btn-outline-secondary" id="viewMonth">Mês</button>
           </div>
 
+          <div class="ms-2 d-none d-md-flex align-items-center gap-2" id="monthColsWrap">
+            <span class="small text-muted">Dias/linha:</span>
+            <select class="form-select form-select-sm" id="monthColsSelect" style="width:96px;">
+              <option value="7">7</option>
+              <option value="14">14</option>
+              <option value="21">21</option>
+            </select>
+          </div>
+
           <button class="btn btn-outline-secondary" id="btnPrev">
             <span class="d-inline-flex align-items-center gap-2">
               <i data-lucide="chevron-left"></i> Anterior
@@ -154,6 +163,59 @@
               <div class="col-md-6">
                 <label class="form-label">Fim</label>
                 <input class="form-control" type="datetime-local" id="end" required />
+              </div>
+
+              <!-- Recorrência -->
+              <div class="col-12">
+                <div class="d-flex align-items-center justify-content-between gap-3">
+                  <label class="form-label mb-0">Recorrente?</label>
+                  <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="isRecurring">
+                    <label class="form-check-label" for="isRecurring">Sim</label>
+                  </div>
+                </div>
+
+                <div id="recurrenceWrap" class="mt-2 p-2 glass d-none" style="border-radius:16px;">
+                  <div class="row g-2">
+                    <div class="col-12">
+                      <label class="form-label fw-semibold">Contagem de dias</label>
+                      <div class="d-flex flex-wrap gap-2">
+                        <div class="form-check">
+                          <input class="form-check-input" type="radio" name="recurrenceDayType" id="recurrenceCalendar" value="CALENDAR" checked>
+                          <label class="form-check-label" for="recurrenceCalendar">Dias corridos</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="radio" name="recurrenceDayType" id="recurrenceWorkdays" value="WORKDAYS">
+                          <label class="form-check-label" for="recurrenceWorkdays">Dias úteis (sem sáb/dom/feriados)</label>
+                        </div>
+                      </div>
+                      <div class="form-text">Obs.: feriados são buscados automaticamente (BR) e ignorados em dias úteis.</div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                      <label class="form-label fw-semibold">Recorrência</label>
+                      <select id="recurrenceEvery" class="form-select">
+                        <option value="7">7 dias</option>
+                        <option value="15">15 dias</option>
+                        <option value="30">30 dias</option>
+                        <option value="45">45 dias</option>
+                        <option value="60">60 dias</option>
+                        <option value="90">90 dias</option>
+                        <option value="120">120 dias</option>
+                        <option value="CUSTOM">Personalizado</option>
+                      </select>
+                    </div>
+
+                    <div class="col-12 col-md-6 d-none" id="customEveryWrap">
+                      <label class="form-label fw-semibold">Quantos dias?</label>
+                      <input id="customEveryDays" type="number" min="1" step="1" class="form-control" placeholder="Ex.: 10">
+                    </div>
+
+                    <div class="col-12">
+                      <div class="form-text">Vamos criar ocorrências automaticamente até <strong>1 ano</strong> a partir da data inicial.</div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div class="col-12 d-none" id="roomRow">

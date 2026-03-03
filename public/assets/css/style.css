@@ -551,6 +551,7 @@ body {
 
 .day-col {
     position: relative;
+    padding: 0 8px;
     border-right: 1px solid rgba(15, 23, 42, .08);
 }
 
@@ -569,8 +570,10 @@ body {
 
 .event-card {
     position: absolute;
-    left: 8px;
-    right: 8px;
+    left: 0;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
     border-radius: 14px;
     padding: 10px 10px;
     border: 1px solid rgba(122, 31, 61, .22);

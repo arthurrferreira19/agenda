@@ -4,7 +4,12 @@
   if (!token) { location.href = "/user/login.html"; return; }
 
   const me = JSON.parse(localStorage.getItem("mh_user") || "null");
-  if (!me || me.role !== "USER") { API.clearToken(); localStorage.removeItem("mh_user"); location.href = "/user/login.html"; return; }
+  if (!me || me.role !== "USER") {
+    API.clearToken();
+    localStorage.removeItem("mh_user");
+    location.href = "/user/login.html";
+    return;
+  }
 
   // Logout (sidebar e mobile)
   document.addEventListener("click", (e) => {
@@ -44,11 +49,24 @@
   const btnNewEvent = document.getElementById("btnNewEvent");
   const monthColsSelect = document.getElementById("monthColsSelect");
 
+  // Bootstrap safety (CSP)
+  function getModal(el) {
+    if (!el) return null;
+    try {
+      if (window.bootstrap && window.bootstrap.Modal) return new window.bootstrap.Modal(el);
+    } catch (_) { /* ignore */ }
+
+    return {
+      show() { el.classList.add("show"); el.style.display = "block"; el.removeAttribute("aria-hidden"); },
+      hide() { el.classList.remove("show"); el.style.display = "none"; el.setAttribute("aria-hidden", "true"); }
+    };
+  }
+
   // Modals
   const modalEventEl = document.getElementById("modalEvent");
   const modalDetailsEl = document.getElementById("modalDetails");
-  const modalEvent = modalEventEl ? new bootstrap.Modal(modalEventEl) : null;
-  const modalDetails = modalDetailsEl ? new bootstrap.Modal(modalDetailsEl) : null;
+  const modalEvent = getModal(modalEventEl);
+  const modalDetails = getModal(modalDetailsEl);
 
   // Form fields
   const modalEventTitle = document.getElementById("modalEventTitle");
@@ -57,6 +75,16 @@
   const eventType = document.getElementById("eventType");
   const start = document.getElementById("start");
   const end = document.getElementById("end");
+
+  // Recorrência (criação em lote)
+  const isRecurringInp = document.getElementById("isRecurring");
+  const recurrenceWrap = document.getElementById("recurrenceWrap");
+  const recurrenceEveryInp = document.getElementById("recurrenceEvery");
+  const customEveryWrap = document.getElementById("customEveryWrap");
+  const customEveryDaysInp = document.getElementById("customEveryDays");
+  const recurrenceCalendarInp = document.getElementById("recurrenceCalendar");
+  const recurrenceWorkdaysInp = document.getElementById("recurrenceWorkdays");
+
   const roomRow = document.getElementById("roomRow");
   const roomId = document.getElementById("roomId");
   const addressRow = document.getElementById("addressRow");
@@ -90,13 +118,13 @@
   const dPerm = document.getElementById("dPerm");
 
   let VIEW = (window.matchMedia && window.matchMedia("(max-width: 991px)").matches) ? "DAY" : "WEEK"; // DAY | WEEK | MONTH
-  let SELECTED_DAY_KEY = null; // para destacar dia selecionado no mês
-  let anchor = new Date(); // data base
+  let SELECTED_DAY_KEY = null;
+  let anchor = new Date();
   let EVENTS = [];
   let ROOMS = [];
   let detailsEvent = null;
 
-  // ---------- Mobile / Colors ----------
+  // ---------- Mobile / Helpers ----------
   const isMobile = () => window.matchMedia && window.matchMedia("(max-width: 991px)").matches;
 
   function getMonthCols() {
@@ -111,7 +139,6 @@
     if (monthHead) monthHead.style.setProperty("--month-cols", String(cols));
     if (monthBody) monthBody.style.setProperty("--month-cols", String(cols));
   }
-
 
   const PALETTE = [
     "#7a1f3d", "#a12b56", "#3b82f6", "#10b981", "#f59e0b",
@@ -133,24 +160,22 @@
 
   function hexToRgba(hex, a) {
     const h = String(hex || "").replace("#", "").trim();
-    const full = h.length === 3 ? h.split("").map(x=>x+x).join("") : h;
-    if (full.length !== 6) return `rgba(122,31,61,${a||.18})`;
-    const r = parseInt(full.slice(0,2),16);
-    const g = parseInt(full.slice(2,4),16);
-    const b = parseInt(full.slice(4,6),16);
+    const full = h.length === 3 ? h.split("").map(x => x + x).join("") : h;
+    if (full.length !== 6) return `rgba(122,31,61,${a || .18})`;
+    const r = parseInt(full.slice(0, 2), 16);
+    const g = parseInt(full.slice(2, 4), 16);
+    const b = parseInt(full.slice(4, 6), 16);
     return `rgba(${r},${g},${b},${a ?? .18})`;
   }
 
   function eventColor(ev) {
-    // prioridade: sala
     const roomColor = getRoomColorById(ev.roomId || ev.room || ev.room_id);
     if (roomColor) return roomColor;
 
-    // sem sala: cor determinística por tipo/título
     const key = `${ev.eventType || "EVENT"}::${ev.title || ""}`;
     return PALETTE[hashIdx(key, PALETTE.length)];
   }
-// ---------- Helpers ----------
+
   function esc(s) {
     return String(s || "")
       .replaceAll("&", "&amp;")
@@ -161,11 +186,13 @@
   }
 
   function showState(type, msg) {
+    if (!stateShell) return;
     if (!msg) { stateShell.innerHTML = ""; return; }
     stateShell.innerHTML = `<div class="alert alert-${type} fade-in" style="border-radius:16px;">${esc(msg)}</div>`;
   }
 
   function showFormErr(msg) {
+    if (!eventErr) return;
     if (!msg) { eventErr.innerHTML = ""; return; }
     eventErr.innerHTML = `<div class="alert alert-danger fade-in" style="border-radius:16px;">${esc(msg)}</div>`;
   }
@@ -221,13 +248,7 @@
   }
 
   function fmtRange(from, to) {
-    // ex: 02/03/2026 – 08/03/2026
     return `${fmtDate(from)} – ${fmtDate(to)}`;
-  }
-
-  function minutesFromStartOfDay(dt) {
-    const d = new Date(dt);
-    return d.getHours() * 60 + d.getMinutes();
   }
 
   function clamp(v, a, b) {
@@ -260,11 +281,10 @@
     try {
       const data = await API.request("/api/rooms/active", { auth: true });
       ROOMS = (data.rooms || []).map(r => ({ id: r.id, name: r.name, color: r.color }));
-      roomId.innerHTML = ROOMS.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("");
+      if (roomId) roomId.innerHTML = ROOMS.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("");
     } catch (e) {
-      // rooms é opcional para usuário, mas type MAXIMUM precisa
       ROOMS = [];
-      roomId.innerHTML = `<option value="">(Sem salas)</option>`;
+      if (roomId) roomId.innerHTML = `<option value="">(Sem salas)</option>`;
     }
   }
 
@@ -292,7 +312,7 @@
 
     membersList.innerHTML = list.map(m => {
       const checked = selectedMembers.has(String(m.id)) ? "checked" : "";
-      const disabled = String(m.id) === String(me.id) ? "disabled" : ""; // criador já é checado no back
+      const disabled = String(m.id) === String(me.id) ? "disabled" : "";
       return `
         <label class="d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
           <input type="checkbox" class="form-check-input" data-member-id="${esc(m.id)}" ${checked} ${disabled}>
@@ -328,12 +348,10 @@
     if (VIEW === "MONTH") {
       const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
       const last = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
-      // range ampliado para pegar eventos que começam/terminam fora do mês mas intersectam
       const from = startOfDay(addDays(first, -7));
       const to = addDays(endOfDay(addDays(last, 7)), 1);
       return { from, to };
     }
-    // WEEK
     const from = startOfWeek(anchor);
     const to = addDays(from, 7);
     return { from, to };
@@ -343,22 +361,23 @@
     const { from, to } = getRange();
     try {
       showState("", "");
-      rangeLabel.textContent = VIEW === "MONTH"
-        ? new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(anchor)
-        : fmtRange(from, addDays(to, -1));
+      if (rangeLabel) {
+        rangeLabel.textContent = VIEW === "MONTH"
+          ? new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(anchor)
+          : fmtRange(from, addDays(to, -1));
+      }
 
-      // ✅ rota protegida: enviar Bearer token
       const data = await API.request(
         `/api/events?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
         { auth: true }
       );
+
       EVENTS = (data.events || []).map(ev => ({
         ...ev,
         start: new Date(ev.start),
         end: new Date(ev.end)
       }));
     } catch (e) {
-      // ✅ se expirar / não autorizado, volta pro login (sem depender de texto)
       if (e?.status === 401) {
         API.clearToken();
         localStorage.removeItem("mh_user");
@@ -372,6 +391,7 @@
 
   // ---------- Render Week/Day ----------
   function buildTimeCol() {
+    if (!timeCol) return;
     timeCol.innerHTML = "";
     const frag = document.createDocumentFragment();
     for (let h = 0; h < 24; h++) {
@@ -384,6 +404,7 @@
   }
 
   function buildDaysHeader(days) {
+    if (!daysHeader) return;
     daysHeader.innerHTML = "";
     daysHeader.style.display = "grid";
     daysHeader.style.gridTemplateColumns = `repeat(${days.length}, 1fr)`;
@@ -403,6 +424,7 @@
   }
 
   function buildGrid(days) {
+    if (!daysGrid) return;
     daysGrid.innerHTML = "";
     daysGrid.style.display = "grid";
     daysGrid.style.gridTemplateColumns = `repeat(${days.length}, 1fr)`;
@@ -412,7 +434,6 @@
       col.className = "day-col";
       col.dataset.date = d.toISOString();
 
-      // slots (linhas)
       for (let h = 0; h < 24; h++) {
         const slot = document.createElement("div");
         slot.className = "hour-row";
@@ -420,11 +441,9 @@
         col.appendChild(slot);
       }
 
-      // clique em vazio -> cria
       col.addEventListener("click", (ev) => {
         const target = ev.target.closest(".hour-row");
         if (!target) return;
-        // não abrir se clicou em evento
         if (ev.target.closest(".event-card")) return;
 
         const hour = parseInt(target.dataset.hour, 10);
@@ -441,174 +460,160 @@
   }
 
   function renderEventsInGrid(days) {
-    // limpa eventos antigos
+    if (!daysGrid) return;
+
     daysGrid.querySelectorAll(".event-card").forEach(el => el.remove());
 
-    // ✅ Agrupamento por (dia + hora):
-    // se existir mais de 1 evento no mesmo horário (interseção com a hora), renderiza "N eventos".
-    const slots = new Map();
-    const slotKey = (day, hour) => `${startOfDay(day).toISOString().slice(0, 10)}::${hour}`;
+    const PX_PER_HOUR = 48; // deve bater com CSS
+    const PX_PER_MIN = PX_PER_HOUR / 60;
 
-    days.forEach((d) => {
-      for (let h = 0; h < 24; h++) slots.set(slotKey(d, h), []);
-    });
+    const minutesFromDayStart = (dt, day0) => Math.round((dt.getTime() - day0.getTime()) / 60000);
 
-    for (const ev of EVENTS) {
-      for (const d of days) {
-        const day0 = startOfDay(d);
-        const day1 = addDays(day0, 1);
-        if (!(ev.start < day1 && ev.end > day0)) continue;
-
-        for (let h = 0; h < 24; h++) {
-          const hs = new Date(day0);
-          hs.setHours(h, 0, 0, 0);
-          const he = new Date(day0);
-          he.setHours(h + 1, 0, 0, 0);
-          if (ev.start < he && ev.end > hs) {
-            slots.get(slotKey(d, h))?.push(ev);
-          }
-        }
-      }
-    }
-
-    // renderiza cards
     for (const d of days) {
       const col = daysGrid.querySelector(`.day-col[data-date="${d.toISOString()}"]`);
       if (!col) continue;
 
-      for (let h = 0; h < 24; h++) {
-        const list = slots.get(slotKey(d, h)) || [];
-        if (!list.length) continue;
+      const day0 = startOfDay(d);
+      const day1 = addDays(day0, 1);
 
-        const top = h * 48;
+      const slices = [];
+      for (const ev of EVENTS) {
+        if (!(ev.start < day1 && ev.end > day0)) continue;
+
+        const s = new Date(Math.max(ev.start.getTime(), day0.getTime()));
+        const e = new Date(Math.min(ev.end.getTime(), day1.getTime()));
+        if (e <= s) continue;
+
+        const startMin = clamp(minutesFromDayStart(s, day0), 0, 24 * 60);
+        const endMin = clamp(minutesFromDayStart(e, day0), 0, 24 * 60);
+
+        slices.push({ ev, startMin, endMin, lane: 0, group: -1 });
+      }
+
+      if (!slices.length) continue;
+
+      // layout de sobreposição
+      slices.sort((a, b) => (a.startMin - b.startMin) || (a.endMin - b.endMin));
+      const active = [];
+      const used = new Set();
+
+      const releaseEnded = (t) => {
+        for (let i = active.length - 1; i >= 0; i--) {
+          if (active[i].endMin <= t) {
+            used.delete(active[i].lane);
+            active.splice(i, 1);
+          }
+        }
+      };
+
+      const nextFreeLane = () => {
+        for (let l = 0; l < 30; l++) if (!used.has(l)) return l;
+        return 0;
+      };
+
+      for (let i = 0; i < slices.length; i++) {
+        const it = slices[i];
+        releaseEnded(it.startMin);
+        const lane = nextFreeLane();
+        it.lane = lane;
+        used.add(lane);
+        active.push({ endMin: it.endMin, lane, idx: i });
+      }
+
+      // grupos para width consistente
+      const parent = Array.from({ length: slices.length }, (_, i) => i);
+      const find = (x) => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+      const uni = (a, b) => {
+        a = find(a); b = find(b);
+        if (a !== b) parent[b] = a;
+      };
+
+      for (let i = 0; i < slices.length; i++) {
+        for (let j = i + 1; j < slices.length; j++) {
+          if (slices[j].startMin >= slices[i].endMin) break;
+          uni(i, j);
+        }
+      }
+
+      const groupMaxLane = new Map();
+      for (let i = 0; i < slices.length; i++) {
+        const g = find(i);
+        slices[i].group = g;
+        groupMaxLane.set(g, Math.max(groupMaxLane.get(g) ?? -1, slices[i].lane));
+      }
+
+      for (const it of slices) {
+        const lanes = (groupMaxLane.get(it.group) ?? 0) + 1;
+        const widthPct = 100 / lanes;
+        const leftPct = it.lane * widthPct;
+
+        const top = it.startMin * PX_PER_MIN;
+        const height = Math.max((it.endMin - it.startMin) * PX_PER_MIN, 18);
+
         const pill = document.createElement("button");
         pill.type = "button";
         pill.className = "event-card";
         pill.style.top = `${top}px`;
-        pill.style.height = `${48 - 6}px`;
+        pill.style.height = `${height}px`;
+        pill.style.left = `${leftPct}%`;
+        pill.style.width = `${widthPct}%`;
 
-        // cor por sala (ou fallback)
-        if (list.length === 1) {
-          const c = eventColor(list[0]);
-          pill.style.borderColor = c;
-          pill.style.background = `linear-gradient(135deg, ${hexToRgba(c, .18)}, ${hexToRgba(c, .10)})`;
-          pill.style.boxShadow = `0 10px 24px ${hexToRgba(c, .18)}`;
-          pill.style.setProperty("--evc", c);
-        } else {
-          pill.style.borderColor = "rgba(15,23,42,.18)";
-          pill.style.background = "rgba(15,23,42,.06)";
-        }
+        const c = eventColor(it.ev);
+        pill.style.borderColor = c;
+        pill.style.background = `linear-gradient(135deg, ${hexToRgba(c, .18)}, ${hexToRgba(c, .10)})`;
+        pill.style.boxShadow = `0 10px 24px ${hexToRgba(c, .18)}`;
+        pill.style.setProperty("--evc", c);
 
-        if (list.length === 1) {
-          const ev = list[0];
-          pill.title = ev.title;
-          pill.innerHTML = `
-            <div class="event-title">${esc(ev.title)}</div>
-            <div class="event-meta">${esc(fmtTime(ev.start))} - ${esc(fmtTime(ev.end))} • ${esc(roleBadge(ev.eventType))}</div>
-          `;
-          pill.addEventListener("click", (e) => { e.stopPropagation(); openDetails(ev); });
-        } else {
-          pill.title = `${list.length} eventos`;
-          pill.innerHTML = `
-            <div class="event-title">${list.length} eventos</div>
-            <div class="event-meta">${pad(h)}:00 - ${pad(h + 1)}:00 • clique para ver</div>
-          `;
-          pill.addEventListener("click", (e) => {
-            e.stopPropagation();
-            openSlotDetails(d, h, list);
-          });
-        }
+        pill.title = it.ev.title || "Evento";
+        pill.innerHTML = `
+          <div class="event-title">${esc(it.ev.title || "Evento")}</div>
+          <div class="event-meta">${esc(fmtTime(it.ev.start))} - ${esc(fmtTime(it.ev.end))} • ${esc(roleBadge(it.ev.eventType))}</div>
+        `;
+        pill.addEventListener("click", (e) => { e.stopPropagation(); openDetails(it.ev); });
 
         col.appendChild(pill);
       }
     }
   }
 
-  function openSlotDetails(day, hour, list) {
-    // reutiliza modalDetails para listar múltiplos
-    dTitle.textContent = `${list.length} eventos`;
-    dType.textContent = "";
-    const hs = new Date(startOfDay(day));
-    hs.setHours(hour, 0, 0, 0);
-    const he = new Date(hs);
-    he.setHours(hour + 1, 0, 0, 0);
-    dWhen.textContent = `${fmtDate(hs)} • ${pad(hour)}:00 - ${pad(hour + 1)}:00`;
+  function buildWeekStrip(weekStart) {
+    if (!weekStrip) return;
+    if (!(VIEW === "WEEK" && isMobile()) || !weekStart) {
+      weekStrip.classList.add("d-none");
+      weekStrip.innerHTML = "";
+      return;
+    }
+    weekStrip.classList.remove("d-none");
+    const days = [];
+    for (let i = 0; i < 7; i++) days.push(addDays(weekStart, i));
 
-    dDesc.innerHTML = list
-      .sort((a, b) => a.start - b.start)
-      .map(ev => {
-        const who = String(ev.createdBy) === String(me.id) ? "Você" : memberName(ev.createdBy);
-        return `
-          <button type="button" class="month-ev w-100 text-start" style="display:block;border-left:4px solid ${eventColor(ev)}" data-ev-id="${esc(ev.id)}">
-            <div class="fw-semibold" style="line-height:1.05;">${esc(ev.title)}</div>
-            <div class="small text-muted">${esc(fmtTime(ev.start))} - ${esc(fmtTime(ev.end))} • ${esc(roleBadge(ev.eventType))} • ${esc(who)}</div>
-          </button>
-        `;
-      }).join("");
+    weekStrip.innerHTML = days.map(d => {
+      const active = sameDay(d, anchor) ? "active" : "";
+      return `
+        <button type="button" class="wday ${active}" data-wday="${d.toISOString()}">
+          <div class="dow">${esc(fmtDayShort(d))}</div>
+          <div class="num">${d.getDate()}</div>
+        </button>
+      `;
+    }).join("");
 
-    dExtra.textContent = "";
-    dMeet.classList.add("d-none");
-    dMeetLink.textContent = "";
-    dPerm.textContent = "Selecione um evento para ver detalhes.";
-    btnEditFromDetails.disabled = true;
-    detailsEvent = null;
-
-    modalDetails?.show();
-    window.MHIcons?.refresh?.();
-
-    dDesc.querySelectorAll("button[data-ev-id]").forEach(btn => {
+    weekStrip.querySelectorAll("button[data-wday]").forEach(btn => {
       btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-ev-id");
-        const ev = list.find(x => String(x.id) === String(id));
-        if (ev) openDetails(ev);
+        const iso = btn.getAttribute("data-wday");
+        if (!iso) return;
+        const d = new Date(iso);
+        anchor = startOfDay(d);
+        buildWeekStrip(startOfWeek(anchor));
+        setActiveViewButtons();
+        renderWeekDay();
       });
     });
+
+    const activeBtn = weekStrip.querySelector(".wday.active");
+    activeBtn?.scrollIntoView?.({ inline: "center", block: "nearest" });
   }
 
-  
-function buildWeekStrip(weekStart) {
-  if (!weekStrip) return;
-  // se não estiver no modo WEEK mobile, ou se não houver weekStart, esconde
-  if (!(VIEW === "WEEK" && isMobile()) || !weekStart) {
-    weekStrip.classList.add("d-none");
-    weekStrip.innerHTML = "";
-    return;
-  }
-  weekStrip.classList.remove("d-none");
-  const days = [];
-  for (let i = 0; i < 7; i++) days.push(addDays(weekStart, i));
-
-  weekStrip.innerHTML = days.map(d => {
-    const active = sameDay(d, anchor) ? "active" : "";
-    return `
-      <button type="button" class="wday ${active}" data-wday="${d.toISOString()}">
-        <div class="dow">${esc(fmtDayShort(d))}</div>
-        <div class="num">${d.getDate()}</div>
-      </button>
-    `;
-  }).join("");
-
-  weekStrip.querySelectorAll("button[data-wday]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const iso = btn.getAttribute("data-wday");
-      if (!iso) return;
-      const d = new Date(iso);
-      // muda apenas o dia âncora dentro da semana (não precisa recarregar do servidor)
-      anchor = startOfDay(d);
-      // atualiza UI sem nova busca (EVENTS já tem a semana inteira)
-      buildWeekStrip(startOfWeek(anchor));
-      setActiveViewButtons();
-      renderWeekDay();
-    });
-  });
-
-  // tenta manter o dia ativo visível
-  const activeBtn = weekStrip.querySelector(".wday.active");
-  activeBtn?.scrollIntoView?.({ inline: "center", block: "nearest" });
-}
-
-function renderWeekDay() {
-    // Week strip (mobile) - permite navegar pelos dias da semana sem 7 colunas
+  function renderWeekDay() {
     if (VIEW === "WEEK" && isMobile()) buildWeekStrip(startOfWeek(anchor));
     else buildWeekStrip(null);
 
@@ -616,7 +621,6 @@ function renderWeekDay() {
     if (VIEW === "DAY") {
       days.push(startOfDay(anchor));
     } else {
-      // Mobile-first: "Semana" vira navegação por dia (sem 7 colunas) para não gerar scroll lateral
       if (isMobile()) {
         days.push(startOfDay(anchor));
       } else {
@@ -633,13 +637,17 @@ function renderWeekDay() {
 
   // ---------- Month ----------
   function buildMonth() {
+    if (!monthHead || !monthBody) return;
+
     monthHead.innerHTML = "";
     monthBody.innerHTML = "";
 
     const names = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
     const cols = getMonthCols();
     applyMonthCols(cols);
-    monthHead.innerHTML = Array.from({ length: cols }, (_, i) => names[i % 7]).map(n => `<div class="month-hcell">${n}</div>`).join("");
+
+    monthHead.innerHTML = Array.from({ length: cols }, (_, i) => names[i % 7])
+      .map(n => `<div class="month-hcell">${n}</div>`).join("");
 
     const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
     const firstWeekStart = startOfWeek(first);
@@ -654,14 +662,16 @@ function renderWeekDay() {
       days.push(addDays(days[days.length - 1], 1));
     }
 
-    // mapa de eventos por dia
+    // mapa de eventos por dia (intersecta)
     const map = new Map();
-    // Indexa eventos por CADA dia que eles intersectam (inclui eventos que atravessam dias)
     for (const ev of EVENTS) {
-      const evStart = startOfDay(ev.start);
+      const evStartDay = startOfDay(ev.start);
       const evEnd = new Date(ev.end);
-      // garante pelo menos 1 dia
-      for (let d = new Date(evStart); d < evEnd; d = addDays(d, 1)) {
+      const endDay = startOfDay(evEnd);
+      // inclui o dia final se houver qualquer tempo dentro dele
+      const lastDay = (evEnd > endDay) ? addDays(endDay, 1) : endDay;
+
+      for (let d = new Date(evStartDay); d < lastDay; d = addDays(d, 1)) {
         const key = startOfDay(d).toISOString().slice(0, 10);
         const arr = map.get(key) || [];
         arr.push(ev);
@@ -675,12 +685,9 @@ function renderWeekDay() {
       const evs = map.get(key) || [];
 
       const cell = document.createElement("div");
-
-      // Mês: não renderiza títulos dentro do quadrinho (isso "quebra" o grid em telas menores).
-      // Em vez disso, mostra indicadores (bolinhas/quadradinhos) por evento/sala.
       const maxMarkers = isMobile() ? 6 : 10;
       const moreCount = Math.max(0, evs.length - maxMarkers);
-      const showPlus = (!isMobile() && evs.length === 0); // só permite criar pelo dia quando NÃO há eventos (desktop)
+      const showPlus = (!isMobile() && evs.length === 0);
       const isToday = sameDay(d, new Date());
       const selected = (SELECTED_DAY_KEY && SELECTED_DAY_KEY === key);
 
@@ -688,8 +695,8 @@ function renderWeekDay() {
 
       const markersHtml = evs.slice(0, maxMarkers).map(ev => {
         const c = eventColor(ev);
-        const roomName = (ROOMS.find(r => String(r.id) === String(ev.roomId || ev.room || ev.room_id))?.name) || "";
-        const tip = `${fmtTime(ev.start)} ${ev.title}${roomName ? ` • ${roomName}` : ""}`;
+        const rName = (ROOMS.find(r => String(r.id) === String(ev.roomId || ev.room || ev.room_id))?.name) || "";
+        const tip = `${fmtTime(ev.start)} ${ev.title}${rName ? ` • ${rName}` : ""}`;
         return `<span class="month-marker square" data-ev-id="${esc(ev.id)}" style="background:${c}" title="${esc(tip)}"></span>`;
       }).join("");
 
@@ -704,7 +711,6 @@ function renderWeekDay() {
         </div>
       `;
 
-      // criar evento (somente quando dia estiver vazio, desktop)
       cell.querySelector(".month-add")?.addEventListener("click", (e) => {
         e.stopPropagation();
         const s = new Date(d);
@@ -714,11 +720,8 @@ function renderWeekDay() {
         openCreate({ start: s, end: e2 });
       });
 
-      // clique no dia: se vazio cria; se tiver eventos abre (1 = detalhes; 2+ = lista)
       cell.addEventListener("click", () => {
-        // destaca dia selecionado visualmente
         SELECTED_DAY_KEY = key;
-        // re-render apenas no mês para atualizar destaque
         if (VIEW === "MONTH") buildMonth();
 
         if (!evs.length) {
@@ -734,7 +737,6 @@ function renderWeekDay() {
         openDayDetails(d, evs);
       });
 
-      // clique em indicador abre o evento (sem sair do grid)
       Array.from(cell.querySelectorAll(".month-marker[data-ev-id]")).forEach((mk) => {
         mk.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -754,6 +756,7 @@ function renderWeekDay() {
     dTitle.textContent = `${list.length} eventos`;
     dType.textContent = "";
     dWhen.textContent = `${fmtDate(day)}`;
+
     dDesc.innerHTML = list
       .slice()
       .sort((a, b) => a.start - b.start)
@@ -763,12 +766,14 @@ function renderWeekDay() {
           <div class="small text-muted">${esc(fmtTime(ev.start))} - ${esc(fmtTime(ev.end))} • ${esc(roleBadge(ev.eventType))}</div>
         </button>
       `).join("");
+
     dExtra.textContent = "";
     dMeet.classList.add("d-none");
     dMeetLink.textContent = "";
     dPerm.textContent = "Selecione um evento para ver detalhes.";
     btnEditFromDetails.disabled = true;
     detailsEvent = null;
+
     modalDetails?.show();
     window.MHIcons?.refresh?.();
 
@@ -783,30 +788,41 @@ function renderWeekDay() {
 
   // ---------- Modal logic ----------
   function setTypeUI() {
-    const t = String(eventType.value || "").toUpperCase();
+    const t = String(eventType?.value || "").toUpperCase();
 
     if (t === "MAXIMUM") {
-      roomRow.classList.remove("d-none");
-      addressRow.classList.add("d-none");
+      roomRow?.classList.remove("d-none");
+      addressRow?.classList.add("d-none");
     } else if (t === "PRESENCIAL") {
-      roomRow.classList.add("d-none");
-      addressRow.classList.remove("d-none");
+      roomRow?.classList.add("d-none");
+      addressRow?.classList.remove("d-none");
     } else {
-      roomRow.classList.add("d-none");
-      addressRow.classList.add("d-none");
+      roomRow?.classList.add("d-none");
+      addressRow?.classList.add("d-none");
     }
   }
 
   eventType?.addEventListener("change", setTypeUI);
 
+  function setRecurrenceUI() {
+    const on = !!isRecurringInp?.checked && !eventId?.value;
+    recurrenceWrap?.classList.toggle("d-none", !on);
+
+    const isCustom = (recurrenceEveryInp?.value === "CUSTOM");
+    customEveryWrap?.classList.toggle("d-none", !on || !isCustom);
+  }
+
+  isRecurringInp?.addEventListener("change", setRecurrenceUI);
+  recurrenceEveryInp?.addEventListener("change", setRecurrenceUI);
+
   function openCreate({ start: s, end: e } = {}) {
     detailsEvent = null;
-    modalEventTitle.textContent = "Novo evento";
-    eventId.value = "";
-    title.value = "";
-    description.value = "";
-    clientAddress.value = "";
-    eventType.value = "MAXIMUM";
+    if (modalEventTitle) modalEventTitle.textContent = "Novo evento";
+    if (eventId) eventId.value = "";
+    if (title) title.value = "";
+    if (description) description.value = "";
+    if (clientAddress) clientAddress.value = "";
+    if (eventType) eventType.value = "MAXIMUM";
     setTypeUI();
 
     selectedMembers = new Set();
@@ -816,36 +832,49 @@ function renderWeekDay() {
     const s0 = s || new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), 0, 0, 0);
     const e0 = e || new Date(s0.getTime() + 60 * 60 * 1000);
 
-    start.value = toLocalInput(s0);
-    end.value = toLocalInput(e0);
+    if (start) start.value = toLocalInput(s0);
+    if (end) end.value = toLocalInput(e0);
 
-    if (ROOMS.length) roomId.value = ROOMS[0].id;
+    if (ROOMS.length && roomId) roomId.value = ROOMS[0].id;
 
-    btnDeleteEvent.classList.add("d-none");
+    btnDeleteEvent?.classList.add("d-none");
     showFormErr("");
+    if (isRecurringInp) isRecurringInp.checked = false;
+    if (customEveryDaysInp) customEveryDaysInp.value = "";
+    if (recurrenceCalendarInp) recurrenceCalendarInp.checked = true;
+    if (recurrenceWorkdaysInp) recurrenceWorkdaysInp.checked = false;
+    setRecurrenceUI();
+
     modalEvent?.show();
     window.MHIcons?.refresh?.();
   }
 
   function openEdit(ev) {
     detailsEvent = ev;
-    modalEventTitle.textContent = "Editar evento";
-    eventId.value = ev.id;
-    title.value = ev.title || "";
-    description.value = ev.description || "";
-    clientAddress.value = ev.clientAddress || "";
-    eventType.value = String(ev.eventType || "MAXIMUM").toUpperCase();
-    start.value = toLocalInput(ev.start);
-    end.value = toLocalInput(ev.end);
+    if (modalEventTitle) modalEventTitle.textContent = "Editar evento";
+    if (eventId) eventId.value = ev.id;
+
+    // Recorrência desabilitada na edição (somente criação)
+    if (isRecurringInp) isRecurringInp.checked = false;
+    if (customEveryDaysInp) customEveryDaysInp.value = "";
+    setRecurrenceUI();
+
+    if (title) title.value = ev.title || "";
+    if (description) description.value = ev.description || "";
+    if (clientAddress) clientAddress.value = ev.clientAddress || "";
+    if (eventType) eventType.value = String(ev.eventType || "MAXIMUM").toUpperCase();
+    if (start) start.value = toLocalInput(ev.start);
+    if (end) end.value = toLocalInput(ev.end);
 
     setTypeUI();
-    if (ev.roomId && ROOMS.length) roomId.value = ev.roomId;
+    if (ev.roomId && ROOMS.length && roomId) roomId.value = ev.roomId;
 
     selectedMembers = new Set((ev.participants || []).map(x => String(x)));
     renderMembers();
 
     const isOwner = String(ev.createdBy) === String(me.id);
-    btnDeleteEvent.classList.toggle("d-none", !isOwner);
+    btnDeleteEvent?.classList.toggle("d-none", !isOwner);
+
     showFormErr("");
     modalEvent?.show();
     window.MHIcons?.refresh?.();
@@ -881,6 +910,7 @@ function renderWeekDay() {
     dPerm.textContent = isOwner
       ? `Criado por você • Participantes: ${names}${ppl.length > 6 ? "…" : ""}`
       : `Criado por ${memberName(ev.createdBy)} • Participantes: ${names}${ppl.length > 6 ? "…" : ""}`;
+
     btnEditFromDetails.disabled = !isOwner;
 
     modalDetails?.show();
@@ -895,7 +925,6 @@ function renderWeekDay() {
       showState("success", "Link copiado!");
       setTimeout(() => showState("", ""), 1200);
     } catch {
-      // fallback
       const tmp = document.createElement("textarea");
       tmp.value = text;
       document.body.appendChild(tmp);
@@ -915,74 +944,229 @@ function renderWeekDay() {
 
   btnNewEvent?.addEventListener("click", () => openCreate());
 
+  // ----- Recorrência helpers (dias corridos / úteis com feriados BR)
+  const HOL_CACHE = new Map(); // year -> Set("YYYY-MM-DD")
+
+  function ymd(d) {
+    const dt = new Date(d);
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const day = String(dt.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  async function getHolidaySet(year) {
+    if (HOL_CACHE.has(year)) return HOL_CACHE.get(year);
+    try {
+      const list = await API.request(`/api/holidays/${year}`, { auth: true });
+      const set = new Set(Array.isArray(list) ? list : (list?.holidays || []));
+      HOL_CACHE.set(year, set);
+      return set;
+    } catch {
+      const set = new Set(); // fallback: weekend-only
+      HOL_CACHE.set(year, set);
+      return set;
+    }
+  }
+
+  function isWeekend(dt) {
+    const day = dt.getDay();
+    return day === 0 || day === 6;
+  }
+
+  async function addWorkdays(base, days) {
+    let cur = new Date(base);
+    let remaining = Number(days) || 0;
+    if (remaining <= 0) return cur;
+
+    while (remaining > 0) {
+      cur.setDate(cur.getDate() + 1);
+
+      if (isWeekend(cur)) continue;
+
+      const set = await getHolidaySet(cur.getFullYear());
+      if (set.has(ymd(cur))) continue;
+
+      remaining -= 1;
+    }
+    return cur;
+  }
+
+  function addCalendarDays(base, days) {
+    const cur = new Date(base);
+    cur.setDate(cur.getDate() + (Number(days) || 0));
+    return cur;
+  }
+
+  function getRecurrenceEveryDays() {
+    const v = recurrenceEveryInp?.value;
+    if (!v) return null;
+    if (v === "CUSTOM") {
+      const n = Number(customEveryDaysInp?.value);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  function isWorkdaysMode() {
+    return !!recurrenceWorkdaysInp?.checked;
+  }
+
+  // ✅ SALVAR EVENTO (corrigido, sem try quebrado)
   async function saveEvent() {
     showFormErr("");
 
     const payload = {
-      title: String(title.value || "").trim(),
-      description: String(description.value || "").trim(),
-      start: new Date(start.value).toISOString(),
-      end: new Date(end.value).toISOString(),
-      eventType: String(eventType.value || "").toUpperCase(),
-      roomId: roomId.value || null,
-      clientAddress: String(clientAddress.value || "").trim(),
+      title: String(title?.value || "").trim(),
+      description: String(description?.value || "").trim(),
+      start: new Date(start?.value).toISOString(),
+      end: new Date(end?.value).toISOString(),
+      eventType: String(eventType?.value || "").toUpperCase(),
+      roomId: roomId?.value || null,
+      clientAddress: String(clientAddress?.value || "").trim(),
       participants: Array.from(selectedMembers)
     };
 
     if (!payload.title) return showFormErr("Informe um título.");
     if (!payload.start || !payload.end) return showFormErr("Informe início e fim.");
 
-    // regras simples no front (o back valida de novo)
     if (payload.eventType === "MAXIMUM" && !payload.roomId) return showFormErr("Selecione uma sala.");
     if (payload.eventType === "PRESENCIAL" && !payload.clientAddress) return showFormErr("Informe o endereço do cliente.");
 
-    const id = eventId.value;
+    const id = eventId?.value || "";
 
     btnSaveEvent.disabled = true;
     btnSaveEvent.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Salvando...`;
 
     try {
-      const doSave = async (confirmConflicts) => {
-        const body = confirmConflicts ? { ...payload, confirmConflicts: true } : payload;
+      const saveOne = async (body, confirmConflicts = false) => {
+        const finalBody = confirmConflicts ? { ...body, confirmConflicts: true } : body;
         if (id) {
-          await API.request(`/api/events/${encodeURIComponent(id)}`, { method: "PUT", body, auth: true });
+          await API.request(`/api/events/${encodeURIComponent(id)}`, { method: "PUT", body: finalBody, auth: true });
         } else {
-          await API.request("/api/events", { method: "POST", body, auth: true });
+          await API.request("/api/events", { method: "POST", body: finalBody, auth: true });
         }
       };
 
-      try {
-        await doSave(false);
-      } catch (e) {
-        if (e?.status === 409 && (e.data?.memberConflicts?.length || e.data?.conflict)) {
-          const lines = [];
-          if (e.data?.memberConflicts?.length) {
-            const sample = e.data.memberConflicts.slice(0, 6);
-            lines.push("Conflito de participantes:");
-            sample.forEach(c => {
-              lines.push(`- ${memberName(c.memberId)}: ${c.title} (${fmtTime(new Date(c.start))}-${fmtTime(new Date(c.end))})`);
-            });
-            if (e.data.memberConflicts.length > 6) lines.push(`... +${e.data.memberConflicts.length - 6} outros`);
+      // ---------- edição: sempre 1 ----------
+      if (id) {
+        await saveOne(payload, false);
+        showState("success", "Evento atualizado!");
+        modalEvent?.hide();
+        await refresh();
+        setTimeout(() => showState("", ""), 1200);
+        return;
+      }
+
+      // ---------- criação ----------
+      const recurring = !!isRecurringInp?.checked;
+
+      if (!recurring) {
+        // evento único
+        try {
+          await saveOne(payload, false);
+        } catch (e) {
+          // conflito: pergunta uma vez
+          if (e?.status === 409 && (e.data?.memberConflicts?.length || e.data?.conflict)) {
+            const lines = [];
+            if (e.data?.memberConflicts?.length) {
+              const sample = e.data.memberConflicts.slice(0, 6);
+              lines.push("Conflito de participantes:");
+              sample.forEach(c => {
+                lines.push(`- ${memberName(c.memberId)}: ${c.title} (${fmtTime(new Date(c.start))}-${fmtTime(new Date(c.end))})`);
+              });
+              if (e.data.memberConflicts.length > 6) lines.push(`... +${e.data.memberConflicts.length - 6} outros`);
+            }
+            if (e.data?.conflict) {
+              const c = e.data.conflict;
+              lines.push(`Sala ocupada: ${c.title} (${fmtTime(new Date(c.start))}-${fmtTime(new Date(c.end))})`);
+            }
+            const ok = confirm(`${e.message}\n\n${lines.join("\n")}\n\nDeseja criar mesmo assim?`);
+            if (!ok) throw new Error("Criação cancelada.");
+            await saveOne(payload, true);
+          } else {
+            throw e;
           }
-          if (e.data?.conflict) {
-            const c = e.data.conflict;
-            lines.push(`Sala ocupada: ${c.title} (${fmtTime(new Date(c.start))}-${fmtTime(new Date(c.end))})`);
+        }
+
+        showState("success", "Evento criado!");
+        modalEvent?.hide();
+        await refresh();
+        setTimeout(() => showState("", ""), 1200);
+        return;
+      }
+
+      // ---------- recorrente ----------
+      const everyDays = getRecurrenceEveryDays();
+      if (!everyDays) throw new Error("Informe a recorrência (quantos dias).");
+
+      const baseStart = new Date(payload.start);
+      const baseEnd = new Date(payload.end);
+      const dur = baseEnd.getTime() - baseStart.getTime();
+      if (!(dur > 0)) throw new Error("O fim deve ser após o início.");
+
+      const limit = new Date(baseStart);
+      limit.setFullYear(limit.getFullYear() + 1);
+
+      // gera ocorrências até 1 ano (máx. 200)
+      const occs = [];
+      let curStart = new Date(baseStart);
+      let count = 0;
+
+      while (curStart <= limit && count < 200) {
+        const curEnd = new Date(curStart.getTime() + dur);
+        occs.push({ start: new Date(curStart), end: curEnd });
+        count += 1;
+
+        curStart = isWorkdaysMode()
+          ? await addWorkdays(curStart, everyDays)
+          : addCalendarDays(curStart, everyDays);
+      }
+
+      let created = 0;
+
+      for (const occ of occs) {
+        const body = { ...payload, start: occ.start.toISOString(), end: occ.end.toISOString() };
+
+        try {
+          await API.request("/api/events", { method: "POST", body, auth: true });
+          created += 1;
+        } catch (e) {
+          if (e?.status === 409 && (e.data?.memberConflicts?.length || e.data?.conflict)) {
+            const lines = [];
+            if (e.data?.memberConflicts?.length) {
+              const sample = e.data.memberConflicts.slice(0, 6);
+              lines.push("Conflito de participantes:");
+              sample.forEach(c => {
+                lines.push(`- ${memberName(c.memberId)}: ${c.title} (${fmtTime(new Date(c.start))}-${fmtTime(new Date(c.end))})`);
+              });
+              if (e.data.memberConflicts.length > 6) lines.push(`... +${e.data.memberConflicts.length - 6} outros`);
+            }
+            if (e.data?.conflict) {
+              const c = e.data.conflict;
+              lines.push(`Sala ocupada: ${c.title} (${fmtTime(new Date(c.start))}-${fmtTime(new Date(c.end))})`);
+            }
+
+            const ok = confirm(`${e.message}\n\n${lines.join("\n")}\n\nDeseja criar mesmo assim esta ocorrência?`);
+            if (!ok) throw new Error("Criação recorrente cancelada.");
+
+            // tenta novamente com confirmação
+            await API.request("/api/events", { method: "POST", body: { ...body, confirmConflicts: true }, auth: true });
+            created += 1;
+          } else {
+            throw e;
           }
-          const ok = confirm(`${e.message}\n\n${lines.join("\n")}\n\nDeseja criar mesmo assim?`);
-          if (ok) await doSave(true);
-          else throw new Error("Criação cancelada.");
-        } else {
-          throw e;
         }
       }
 
-      showState("success", id ? "Evento atualizado!" : "Evento criado!");
-
+      showState("success", created > 1 ? `Eventos criados: ${created}` : "Evento criado!");
       modalEvent?.hide();
       await refresh();
       setTimeout(() => showState("", ""), 1200);
+
     } catch (e) {
-      if (e?.message === "Criação cancelada.") return;
+      if (e?.message === "Criação cancelada." || e?.message === "Criação recorrente cancelada.") return;
       showFormErr(e.message || "Erro ao salvar.");
     } finally {
       btnSaveEvent.disabled = false;
@@ -992,7 +1176,7 @@ function renderWeekDay() {
   }
 
   async function deleteEvent() {
-    const id = eventId.value;
+    const id = eventId?.value;
     if (!id) return;
 
     btnDeleteEvent.disabled = true;
@@ -1022,7 +1206,6 @@ function renderWeekDay() {
     viewWeekBtn?.classList.toggle("active", VIEW === "WEEK");
     viewMonthBtn?.classList.toggle("active", VIEW === "MONTH");
 
-    // mobile bottom
     mViewDay?.classList.toggle("active", VIEW === "DAY");
     mViewWeek?.classList.toggle("active", VIEW === "WEEK");
     mViewMonth?.classList.toggle("active", VIEW === "MONTH");
@@ -1032,24 +1215,23 @@ function renderWeekDay() {
     setActiveViewButtons();
 
     if (VIEW === "MONTH") {
-      weekDayShell.classList.add("d-none");
-      monthShell.classList.remove("d-none");
+      weekDayShell?.classList.add("d-none");
+      monthShell?.classList.remove("d-none");
       weekStrip?.classList.add("d-none");
     } else {
-      monthShell.classList.add("d-none");
-      weekDayShell.classList.remove("d-none");
-      // strip só aparece em WEEK + mobile (controlado no buildWeekStrip)
+      monthShell?.classList.add("d-none");
+      weekDayShell?.classList.remove("d-none");
       if (!(VIEW === "WEEK" && isMobile())) weekStrip?.classList.add("d-none");
     }
   }
 
-  viewDayBtn?.addEventListener("click", async () => { VIEW = "DAY"; localStorage.setItem("mh_agenda_view","DAY"); applyView(); await refresh(); });
-  viewWeekBtn?.addEventListener("click", async () => { VIEW = "WEEK"; localStorage.setItem("mh_agenda_view","WEEK"); applyView(); await refresh(); });
-  viewMonthBtn?.addEventListener("click", async () => { VIEW = "MONTH"; localStorage.setItem("mh_agenda_view","MONTH"); applyView(); await refresh(); });
+  viewDayBtn?.addEventListener("click", async () => { VIEW = "DAY"; localStorage.setItem("mh_agenda_view", "DAY"); applyView(); await refresh(); });
+  viewWeekBtn?.addEventListener("click", async () => { VIEW = "WEEK"; localStorage.setItem("mh_agenda_view", "WEEK"); applyView(); await refresh(); });
+  viewMonthBtn?.addEventListener("click", async () => { VIEW = "MONTH"; localStorage.setItem("mh_agenda_view", "MONTH"); applyView(); await refresh(); });
 
-  mViewDay?.addEventListener("click", async () => { VIEW = "DAY"; localStorage.setItem("mh_agenda_view","DAY"); applyView(); await refresh(); });
-  mViewWeek?.addEventListener("click", async () => { VIEW = "WEEK"; localStorage.setItem("mh_agenda_view","WEEK"); applyView(); await refresh(); });
-  mViewMonth?.addEventListener("click", async () => { VIEW = "MONTH"; localStorage.setItem("mh_agenda_view","MONTH"); applyView(); await refresh(); });
+  mViewDay?.addEventListener("click", async () => { VIEW = "DAY"; localStorage.setItem("mh_agenda_view", "DAY"); applyView(); await refresh(); });
+  mViewWeek?.addEventListener("click", async () => { VIEW = "WEEK"; localStorage.setItem("mh_agenda_view", "WEEK"); applyView(); await refresh(); });
+  mViewMonth?.addEventListener("click", async () => { VIEW = "MONTH"; localStorage.setItem("mh_agenda_view", "MONTH"); applyView(); await refresh(); });
 
   btnToday?.addEventListener("click", async () => { anchor = new Date(); await refresh(); });
 
@@ -1067,9 +1249,7 @@ function renderWeekDay() {
     await refresh();
   });
 
-  // Responsivo: em telas pequenas, começa em DIA
   function applyResponsiveDefault() {
-    // Mobile-first: começa em DIA, mas não bloqueia o usuário de escolher "Semana"
     const small = window.matchMedia("(max-width: 991px)").matches;
     const saved = localStorage.getItem("mh_agenda_view");
     if (saved === "DAY" || saved === "WEEK" || saved === "MONTH") {
@@ -1088,6 +1268,16 @@ function renderWeekDay() {
   }
 
   async function init() {
+    // Controle: quantos dias por linha no mês (7/14/21)
+    if (monthColsSelect) {
+      try { monthColsSelect.value = String(getMonthCols()); } catch (_) {}
+      monthColsSelect.addEventListener("change", () => {
+        const v = Number(monthColsSelect.value || 7);
+        applyMonthCols([7, 14, 21].includes(v) ? v : 7);
+        if (VIEW === "MONTH") buildMonth();
+      });
+    }
+
     applyResponsiveDefault();
     applyView();
 
@@ -1098,4 +1288,3 @@ function renderWeekDay() {
 
   init();
 })();
-  // monthColsSelect: (não encontrado ponto de inserção)

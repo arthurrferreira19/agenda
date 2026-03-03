@@ -28,6 +28,20 @@
     const monthBody = document.getElementById("monthBody");
     const monthColsSelect = document.getElementById("monthColsSelect");
 
+
+  // Bootstrap safety: se scripts externos forem bloqueados (CSP), não deixa a agenda "morrer".
+  function getModal(el) {
+    if (!el) return null;
+    try {
+      if (window.bootstrap && window.bootstrap.Modal) return new window.bootstrap.Modal(el);
+    } catch (_) {}
+    // Fallback bem simples (não tem backdrop/esc/etc) — só para não quebrar o grid.
+    return {
+      show() { el.classList.add("show"); el.style.display = "block"; el.removeAttribute("aria-hidden"); },
+      hide() { el.classList.remove("show"); el.style.display = "none"; el.setAttribute("aria-hidden","true"); }
+    };
+  }
+
     // Nav buttons
     const btnPrev = document.getElementById("btnPrev");
     const btnToday = document.getElementById("btnToday");
@@ -35,13 +49,13 @@
 
     // Modal
     const modalEl = document.getElementById("modalEvent");
-    const modal = new bootstrap.Modal(modalEl);
+    const modal = getModal(modalEl);
     const modalTitle = document.getElementById("modalTitle");
     const modalErr = document.getElementById("modalErr");
 
     // Slot modal (multi-event)
     const modalSlotEl = document.getElementById("modalSlot");
-    const modalSlot = modalSlotEl ? new bootstrap.Modal(modalSlotEl) : null;
+    const modalSlot = getModal(modalSlotEl);
     const slotTitle = document.getElementById("slotTitle");
     const slotWhen = document.getElementById("slotWhen");
     const slotList = document.getElementById("slotList");
@@ -73,14 +87,97 @@
     const START_HOUR = 0;
     const END_HOUR = 24;
 
-    // Recorrência
+    // Recorrência (criação em lote)
     const isRecurringInp = document.getElementById("isRecurring");
     const recurrenceWrap = document.getElementById("recurrenceWrap");
-    const recurrenceFreqInp = document.getElementById("recurrenceFreq");
+    const recurrenceEveryInp = document.getElementById("recurrenceEvery");
     const customEveryWrap = document.getElementById("customEveryWrap");
     const customEveryDaysInp = document.getElementById("customEveryDays");
-    const recurrenceUntilInp = document.getElementById("recurrenceUntil");
-    const recurrenceCountInp = document.getElementById("recurrenceCount");
+    const recurrenceCalendarInp = document.getElementById("recurrenceCalendar");
+    const recurrenceWorkdaysInp = document.getElementById("recurrenceWorkdays");
+
+
+    function setRecurrenceUI() {
+        const on = !!isRecurringInp?.checked && !eventId?.value;
+        recurrenceWrap?.classList.toggle("d-none", !on);
+
+        const isCustom = (recurrenceEveryInp?.value === "CUSTOM");
+        customEveryWrap?.classList.toggle("d-none", !on || !isCustom);
+    }
+
+    isRecurringInp?.addEventListener("change", setRecurrenceUI);
+    recurrenceEveryInp?.addEventListener("change", setRecurrenceUI);
+
+    // ----- Recorrência helpers (dias corridos / úteis com feriados BR)
+    const HOL_CACHE = new Map(); // year -> Set("YYYY-MM-DD")
+
+    function ymd(d) {
+        const dt = new Date(d);
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, "0");
+        const day = String(dt.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+    }
+
+    async function getHolidaySet(year) {
+        if (HOL_CACHE.has(year)) return HOL_CACHE.get(year);
+        try {
+            const list = await API.request(`/api/holidays/${year}`, { auth: true });
+            const set = new Set(Array.isArray(list) ? list : []);
+            HOL_CACHE.set(year, set);
+            return set;
+        } catch {
+            const set = new Set();
+            HOL_CACHE.set(year, set);
+            return set;
+        }
+    }
+
+    function isWeekend(dt) {
+        const day = dt.getDay();
+        return day === 0 || day === 6;
+    }
+
+    async function addWorkdays(base, days) {
+        let cur = new Date(base);
+        let remaining = Number(days) || 0;
+        if (remaining <= 0) return cur;
+
+        while (remaining > 0) {
+            cur.setDate(cur.getDate() + 1);
+
+            if (isWeekend(cur)) continue;
+
+            const set = await getHolidaySet(cur.getFullYear());
+            if (set.has(ymd(cur))) continue;
+
+            remaining -= 1;
+        }
+        return cur;
+    }
+
+    function addCalendarDays(base, days) {
+        const cur = new Date(base);
+        cur.setDate(cur.getDate() + (Number(days) || 0));
+        return cur;
+    }
+
+    function getRecurrenceEveryDays() {
+        const v = recurrenceEveryInp?.value;
+        if (!v) return null;
+        if (v === "CUSTOM") {
+            const n = Number(customEveryDaysInp?.value);
+            return Number.isFinite(n) && n > 0 ? n : null;
+        }
+        const n = Number(v);
+        return Number.isFinite(n) && n > 0 ? n : null;
+    }
+
+    function isWorkdaysMode() {
+        return !!recurrenceWorkdaysInp?.checked;
+    }
+
+
 
     // State
     let viewMode = "WEEK";
@@ -342,66 +439,124 @@ function applyMonthCols(cols) {
     // ---------- Render events on grid
     function renderEventsGrid(columns) {
         daysGrid.querySelectorAll(".event-card").forEach(el => el.remove());
+
+        const PX_PER_HOUR = 48;
+        const PX_PER_MIN = PX_PER_HOUR / 60;
+
         const base = viewMode === "DAY" ? startOfDay(cursorDate) : startOfWeek(cursorDate);
+        const days = [];
+        for (let i = 0; i < columns; i++) days.push(addDays(base, i));
 
-        // Agrupa por (dia + hora) para exibir "N eventos" no mesmo slot
-        const slots = new Map();
-        const key = (dayIndex, hour) => `${dayIndex}::${hour}`;
-        for (let d = 0; d < columns; d++) for (let h = 0; h < 24; h++) slots.set(key(d, h), []);
+        const minutesFromDayStart = (dt, day0) => Math.round((dt.getTime() - day0.getTime()) / 60000);
 
-        for (const ev of EVENTS) {
-            const s = new Date(ev.start);
-            const e = new Date(ev.end);
-            for (let dayIndex = 0; dayIndex < columns; dayIndex++) {
-                const day0 = addDays(base, dayIndex);
-                day0.setHours(0, 0, 0, 0);
-                const day1 = new Date(day0);
-                day1.setHours(24, 0, 0, 0);
-                if (!(s < day1 && e > day0)) continue;
-                for (let h = 0; h < 24; h++) {
-                    const hs = new Date(day0); hs.setHours(h, 0, 0, 0);
-                    const he = new Date(day0); he.setHours(h + 1, 0, 0, 0);
-                    if (s < he && e > hs) slots.get(key(dayIndex, h))?.push(ev);
-                }
-            }
-        }
-
-        for (let dayIndex = 0; dayIndex < columns; dayIndex++) {
-            const col = daysGrid.querySelector(`.day-col[data-day-index="${dayIndex}"]`);
+        for (let dayIndex = 0; dayIndex < days.length; dayIndex++) {
+            const d = days[dayIndex];
+            const col = daysGrid.querySelector(`.day-col[data-day="${dayIndex}"]`);
             if (!col) continue;
 
-            for (let h = 0; h < 24; h++) {
-                const list = slots.get(key(dayIndex, h)) || [];
-                if (!list.length) continue;
+            const day0 = startOfDay(d);
+            const day1 = addDays(day0, 1);
 
-                const card = document.createElement("div");
-                card.className = "event-card";
-                card.style.top = `${h * HOUR_HEIGHT + 2}px`;
-                card.style.height = `${HOUR_HEIGHT - 6}px`;
+            const slices = [];
+            for (const ev of EVENTS) {
+                if (!(ev.start < day1 && ev.end > day0)) continue;
 
-                if (list.length === 1) {
-                    const ev = list[0];
-                    const s = new Date(ev.start);
-                    const e = new Date(ev.end);
-                    const timeLabel = `${String(s.getHours()).padStart(2, "0")}:${String(s.getMinutes()).padStart(2, "0")}` +
-                        `–${String(e.getHours()).padStart(2, "0")}:${String(e.getMinutes()).padStart(2, "0")}`;
-                    card.innerHTML = `
-                      <div class="event-title">${esc(ev.title)}</div>
-                      <div class="event-time">${esc(timeLabel)} • ${esc(ev.eventType)}</div>
-                    `;
-                    card.addEventListener("click", () => openEdit(ev, isMineOrAdmin(ev)));
-                } else {
-                    card.innerHTML = `
-                      <div class="event-title">${list.length} eventos</div>
-                      <div class="event-time">${String(h).padStart(2, "0")}:00–${String(h + 1).padStart(2, "0")}:00 • clique para ver</div>
-                    `;
-                    card.addEventListener("click", () => openSlot(dayIndex, h, list));
+                const s = new Date(Math.max(ev.start.getTime(), day0.getTime()));
+                const e = new Date(Math.min(ev.end.getTime(), day1.getTime()));
+                if (e <= s) continue;
+
+                const startMin = clamp(minutesFromDayStart(s, day0), 0, 24 * 60);
+                const endMin = clamp(minutesFromDayStart(e, day0), 0, 24 * 60);
+
+                slices.push({ ev, startMin, endMin, lane: 0, group: -1 });
+            }
+
+            if (!slices.length) continue;
+
+            // lanes (greedy)
+            slices.sort((a, b) => (a.startMin - b.startMin) || (a.endMin - b.endMin));
+
+            const active = [];
+            const used = new Set();
+
+            const releaseEnded = (t) => {
+                for (let i = active.length - 1; i >= 0; i--) {
+                    if (active[i].endMin <= t) {
+                        used.delete(active[i].lane);
+                        active.splice(i, 1);
+                    }
                 }
-                col.appendChild(card);
+            };
+            const nextFreeLane = () => {
+                for (let l = 0; l < 30; l++) if (!used.has(l)) return l;
+                return 0;
+            };
+
+            for (let i = 0; i < slices.length; i++) {
+                const it = slices[i];
+                releaseEnded(it.startMin);
+
+                const lane = nextFreeLane();
+                it.lane = lane;
+                used.add(lane);
+                active.push({ endMin: it.endMin, lane, idx: i });
+            }
+
+            // grupos (union-find)
+            const parent = Array.from({ length: slices.length }, (_, i) => i);
+            const find = (x) => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+            const uni = (a, b) => {
+                a = find(a); b = find(b);
+                if (a !== b) parent[b] = a;
+            };
+
+            for (let i = 0; i < slices.length; i++) {
+                for (let j = i + 1; j < slices.length; j++) {
+                    if (slices[j].startMin >= slices[i].endMin) break;
+                    uni(i, j);
+                }
+            }
+
+            const groupMaxLane = new Map();
+            for (let i = 0; i < slices.length; i++) {
+                const g = find(i);
+                slices[i].group = g;
+                groupMaxLane.set(g, Math.max(groupMaxLane.get(g) ?? -1, slices[i].lane));
+            }
+
+            // render blocos (um único bloco por evento, sem cortar por hora)
+            for (const it of slices) {
+                const lanes = (groupMaxLane.get(it.group) ?? 0) + 1;
+                const widthPct = 100 / lanes;
+                const leftPct = it.lane * widthPct;
+
+                const top = it.startMin * PX_PER_MIN;
+                const height = Math.max((it.endMin - it.startMin) * PX_PER_MIN, 18);
+
+                const pill = document.createElement("button");
+                pill.type = "button";
+                pill.className = "event-card";
+                pill.style.top = `${top}px`;
+                pill.style.height = `${height}px`;
+                pill.style.left = `${leftPct}%`;
+                pill.style.width = `${widthPct}%`;
+
+                const c = eventColor(it.ev);
+                pill.style.borderColor = c;
+                pill.style.background = `linear-gradient(135deg, ${hexToRgba(c, .18)}, ${hexToRgba(c, .10)})`;
+                pill.style.boxShadow = `0 10px 24px ${hexToRgba(c, .18)}`;
+                pill.style.setProperty("--evc", c);
+
+                pill.title = it.ev.title || "Evento";
+                pill.innerHTML = `
+                    <div class="event-title">${esc(it.ev.title || "Evento")}</div>
+                    <div class="event-meta">${esc(fmtTime(it.ev.start))} - ${esc(fmtTime(it.ev.end))}</div>
+                `;
+                pill.addEventListener("click", (e) => { e.stopPropagation(); openDetails(it.ev); });
+
+                col.appendChild(pill);
             }
         }
-
-        if (window.lucide) lucide.createIcons();
     }
 
     function openSlot(dayIndex, hour, list) {
@@ -544,6 +699,14 @@ function applyMonthCols(cols) {
         startInp.value = toLocalInputValue(start);
         endInp.value = toLocalInputValue(end);
 
+        // Recorrência (apenas para criação)
+        if (isRecurringInp) isRecurringInp.checked = false;
+        if (recurrenceCalendarInp) recurrenceCalendarInp.checked = true;
+        if (recurrenceEveryInp) recurrenceEveryInp.value = "7";
+        if (customEveryDaysInp) customEveryDaysInp.value = "";
+        setRecurrenceUI();
+
+
         btnDelete.classList.add("d-none");
         showModalError("");
         eventForm.classList.remove("was-validated");
@@ -560,6 +723,12 @@ function applyMonthCols(cols) {
     function openEdit(ev, canEdit) {
         modalTitle.textContent = canEdit ? "Editar evento" : "Evento (somente leitura)";
         eventId.value = ev.id;
+
+        // Recorrência desabilitada na edição (somente na criação)
+        if (isRecurringInp) isRecurringInp.checked = false;
+        if (customEveryDaysInp) customEveryDaysInp.value = "";
+        setRecurrenceUI();
+
 
         titleInp.value = ev.title || "";
         descInp.value = ev.description || "";
@@ -635,17 +804,93 @@ function applyMonthCols(cols) {
         try {
             setBusy(btnSave, true);
 
-            const doSave = async (confirmConflicts) => {
-                const body = confirmConflicts ? { ...payload, confirmConflicts: true } : payload;
+            const saveOne = async (body, confirmConflicts) => {
+                const finalBody = confirmConflicts ? { ...body, confirmConflicts: true } : body;
                 if (!eventId.value) {
-                    await API.request("/api/events", { method: "POST", auth: true, body });
+                    await API.request("/api/events", { method: "POST", auth: true, body: finalBody });
                 } else {
-                    await API.request(`/api/events/${eventId.value}`, { method: "PUT", auth: true, body });
+                    await API.request(`/api/events/${eventId.value}`, { method: "PUT", auth: true, body: finalBody });
                 }
             };
 
+            const doSave = async () => {
+                // edição = único
+                if (eventId.value) {
+                    await saveOne(payload, false);
+                    return { created: 1 };
+                }
+
+                // criação pode ser recorrente
+                const recurring = !!isRecurringInp?.checked;
+                if (!recurring) {
+                    await saveOne(payload, false);
+                    return { created: 1 };
+                }
+
+                const everyDays = getRecurrenceEveryDays();
+                if (!everyDays) throw new Error("Informe a recorrência (quantos dias).");
+
+                const baseStart = new Date(payload.start);
+                const baseEnd = new Date(payload.end);
+                const dur = baseEnd.getTime() - baseStart.getTime();
+                if (!(dur > 0)) throw new Error("O fim precisa ser maior que o início.");
+
+                const limit = new Date(baseStart);
+                limit.setFullYear(limit.getFullYear() + 1);
+
+                const occs = [];
+                let curStart = new Date(baseStart);
+                let count = 0;
+                while (curStart <= limit && count < 200) {
+                    const curEnd = new Date(curStart.getTime() + dur);
+                    occs.push({ start: new Date(curStart), end: curEnd });
+                    count += 1;
+
+                    curStart = isWorkdaysMode()
+                        ? await addWorkdays(curStart, everyDays)
+                        : addCalendarDays(curStart, everyDays);
+                }
+
+                let created = 0;
+                for (const occ of occs) {
+                    const body = { ...payload, start: occ.start.toISOString(), end: occ.end.toISOString() };
+
+                    try {
+                        await API.request("/api/events", { method: "POST", auth: true, body });
+                        created += 1;
+                    } catch (err) {
+                        if (err?.status === 409 && (err.data?.memberConflicts?.length || err.data?.conflict)) {
+                            const lines = [];
+                            if (err.data?.memberConflicts?.length) {
+                                const conflicts = err.data.memberConflicts;
+                                const nameById = new Map((MEMBERS || []).map(m => [String(m.id), m.name]));
+                                lines.push("Conflito de participantes:");
+                                conflicts.slice(0, 8).forEach(c => {
+                                    const nm = nameById.get(String(c.memberId)) || `Membro ${String(c.memberId).slice(-6)}`;
+                                    lines.push(`• ${nm}: ${c.title}`);
+                                });
+                                if (conflicts.length > 8) lines.push(`... +${conflicts.length - 8} outros`);
+                            }
+                            if (err.data?.conflict) {
+                                lines.push(`Sala ocupada: ${err.data.conflict.title}`);
+                            }
+                            const ok = confirm(`${err.message}\n\n${lines.join("\n")}\n\nDeseja criar mesmo assim esta ocorrência?`);
+                            if (!ok) throw new Error("Criação recorrente cancelada.");
+                            await API.request("/api/events", { method: "POST", auth: true, body: { ...body, confirmConflicts: true } });
+                            created += 1;
+                        } else {
+                            throw err;
+                        }
+                    }
+                }
+
+                return { created };
+            };
+            };
+
             try {
-                await doSave(false);
+                const r = await doSave();
+                var __createdCount = r?.created || 1;
             } catch (err) {
                 if (err?.status === 409 && (err.data?.memberConflicts?.length || err.data?.conflict)) {
                     const lines = [];
@@ -672,6 +917,7 @@ function applyMonthCols(cols) {
 
             modal.hide();
             await refresh();
+            if (__createdCount > 1) alert(`Eventos criados: ${__createdCount}`);
         } catch (err) {
             showModalError(err.message || "Erro ao salvar evento.");
         } finally {
@@ -689,6 +935,7 @@ function applyMonthCols(cols) {
             await API.request(`/api/events/${eventId.value}`, { method: "DELETE", auth: true });
             modal.hide();
             await refresh();
+            if (__createdCount > 1) alert(`Eventos criados: ${__createdCount}`);
         } catch (err) {
             showModalError(err.message || "Erro ao excluir evento.");
         } finally {
