@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Maximum Help | Perfil & Preferências</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/style.css"/>
+</head>
+<body class="user-settings">
+  <div class="admin-shell">
+    <div id="sidebarMount"></div>
+
+    <main class="main fade-up">
+      <div class="mobile-topbar d-lg-none">
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center gap-2">
+            <span class="pill-brand">Maximum Help</span>
+            <span class="badge badge-wine">Preferências</span>
+          </div>
+          <button class="btn btn-sm btn-outline-secondary" id="btnLogoutMobile" type="button">
+            <span class="d-inline-flex align-items-center gap-2"><i data-lucide="log-out"></i> Sair</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+          <h2 class="mh-title mb-1">Perfil & Preferências</h2>
+          <p class="mh-sub mb-0">Personalize sua experiência (mobile-friendly).</p>
+        </div>
+        <div class="d-flex gap-2">
+          <a class="btn btn-outline-secondary" href="/user/agenda.html">
+            <span class="d-inline-flex align-items-center gap-2"><i data-lucide="calendar-days"></i> Voltar</span>
+          </a>
+          <button class="btn btn-wine" id="btnSave" type="button">
+            <span class="d-inline-flex align-items-center gap-2"><i data-lucide="save"></i> Salvar</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="stateShell" class="mt-3"></div>
+
+      <div class="row g-3 mt-2">
+        <div class="col-12 col-lg-6">
+          <div class="card dash-card">
+            <div class="card-body">
+              <h5 class="mb-3">Dados do perfil</h5>
+              <div class="mb-2">
+                <label class="form-label">Nome</label>
+                <input class="form-control" id="meName" placeholder="Seu nome"/>
+              </div>
+              <div class="mb-2">
+                <label class="form-label">E-mail</label>
+                <input class="form-control" id="meEmail" placeholder="seu@email.com"/>
+              </div>
+
+              <hr class="my-3"/>
+
+              <h6 class="mb-2">Alterar senha</h6>
+              <div class="row g-2">
+                <div class="col-12 col-md-6">
+                  <input class="form-control" id="currentPassword" type="password" placeholder="Senha atual (opcional)"/>
+                </div>
+                <div class="col-12 col-md-6">
+                  <input class="form-control" id="newPassword" type="password" placeholder="Nova senha (mín. 6)"/>
+                </div>
+              </div>
+              <button class="btn btn-outline-secondary mt-2" id="btnChangePassword" type="button">
+                <span class="d-inline-flex align-items-center gap-2"><i data-lucide="key-round"></i> Atualizar senha</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+          <div class="card dash-card">
+            <div class="card-body">
+              <h5 class="mb-3">Preferências</h5>
+
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label">Início do dia</label>
+                  <input class="form-control" id="workStart" type="time" value="08:00"/>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Fim do dia</label>
+                  <input class="form-control" id="workEnd" type="time" value="18:00"/>
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <label class="form-label">Lembretes (minutos)</label>
+                <div class="d-flex flex-wrap gap-2" id="remindersWrap">
+                  <label class="btn btn-outline-secondary btn-sm"><input class="form-check-input me-1" type="checkbox" value="15">15</label>
+                  <label class="btn btn-outline-secondary btn-sm"><input class="form-check-input me-1" type="checkbox" value="30">30</label>
+                  <label class="btn btn-outline-secondary btn-sm"><input class="form-check-input me-1" type="checkbox" value="60">60</label>
+                </div>
+                <div class="small text-muted mt-1">Esses lembretes são usados para criar notificações automaticamente.</div>
+              </div>
+
+              <hr class="my-3"/>
+
+              <h6 class="mb-2">Interface</h6>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="uiShowKpis" checked>
+                <label class="form-check-label" for="uiShowKpis">Mostrar KPIs</label>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="uiShowFilters" checked>
+                <label class="form-check-label" for="uiShowFilters">Mostrar filtros</label>
+              </div>
+
+              <div class="small text-muted mt-2">Você também pode alternar KPIs/Filtros na própria agenda.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="card dash-card">
+            <div class="card-body">
+              <h5 class="mb-3">Templates de evento (local)</h5>
+              <div class="row g-2">
+                <div class="col-12 col-md-4">
+                  <input class="form-control" id="tplTitle" placeholder="Nome do template (ex.: Reunião semanal)">
+                </div>
+                <div class="col-6 col-md-2">
+                  <select class="form-select" id="tplType">
+                    <option value="MAXIMUM">Maximum</option>
+                    <option value="PRESENCIAL">Presencial</option>
+                    <option value="ONLINE">Online</option>
+                  </select>
+                </div>
+                <div class="col-6 col-md-2">
+                  <input class="form-control" id="tplDuration" type="number" min="15" step="15" value="60" placeholder="Duração (min)">
+                </div>
+                <div class="col-12 col-md-4">
+                  <button class="btn btn-wine w-100" id="btnAddTpl" type="button">
+                    <span class="d-inline-flex align-items-center gap-2"><i data-lucide="plus"></i> Adicionar template</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="mt-3" id="tplList"></div>
+              <div class="small text-muted mt-2">Templates são salvos no navegador (localStorage).</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="/user/partials/sidebarUser.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/icons.js"></script>
+  <script src="/assets/js/userSettings.js"></script>
+</body>
+</html>

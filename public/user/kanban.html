@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Maximum Help | Kanban</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/style.css"/>
+</head>
+<body class="user-kanban">
+  <div class="admin-shell">
+    <div id="sidebarMount"></div>
+
+    <main class="main fade-up">
+      <div class="mobile-topbar d-lg-none">
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center gap-2">
+            <span class="pill-brand">Maximum Help</span>
+            <span class="badge badge-wine">Kanban</span>
+          </div>
+          <button class="btn btn-sm btn-outline-secondary" id="btnLogoutMobile" type="button">
+            <span class="d-inline-flex align-items-center gap-2"><i data-lucide="log-out"></i> Sair</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+          <h2 class="mh-title mb-1">Kanban Pessoal</h2>
+          <p class="mh-sub mb-0">Organize tarefas rápidas (salvo localmente no seu navegador).</p>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-wine" id="btnAddTask" type="button">
+            <span class="d-inline-flex align-items-center gap-2"><i data-lucide="plus"></i> Nova tarefa</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="row g-3 mt-2" id="kbBoard">
+        <div class="col-12 col-lg-4">
+          <div class="card dash-card h-100">
+            <div class="card-body">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="fw-semibold">A Fazer</div>
+                <span class="badge text-bg-light border" id="countTodo">0</span>
+              </div>
+              <div class="d-flex flex-column gap-2" data-col="TODO"></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-lg-4">
+          <div class="card dash-card h-100">
+            <div class="card-body">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="fw-semibold">Em Andamento</div>
+                <span class="badge text-bg-light border" id="countDoing">0</span>
+              </div>
+              <div class="d-flex flex-column gap-2" data-col="DOING"></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-lg-4">
+          <div class="card dash-card h-100">
+            <div class="card-body">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="fw-semibold">Concluído</div>
+                <span class="badge text-bg-light border" id="countDone">0</span>
+              </div>
+              <div class="d-flex flex-column gap-2" data-col="DONE"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal simples -->
+      <div class="mh-modal-overlay d-none" id="taskModal">
+        <div class="mh-modal-card">
+          <div class="mh-modal-header">
+            <div class="fw-semibold">Nova tarefa</div>
+            <button class="btn btn-sm btn-outline-secondary" id="btnCloseTaskModal" type="button">
+              <span class="d-inline-flex align-items-center gap-1"><i data-lucide="x"></i> Fechar</span>
+            </button>
+          </div>
+          <div class="mh-modal-body">
+            <div class="mb-2">
+              <label class="form-label">Título</label>
+              <input class="form-control" id="taskTitle" placeholder="Ex.: Enviar relatório">
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Descrição</label>
+              <textarea class="form-control" id="taskDesc" rows="3" placeholder="Detalhes..."></textarea>
+            </div>
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label">Coluna</label>
+                <select class="form-select" id="taskCol">
+                  <option value="TODO">A Fazer</option>
+                  <option value="DOING">Em Andamento</option>
+                  <option value="DONE">Concluído</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-6 d-flex align-items-end">
+                <button class="btn btn-wine w-100" id="btnSaveTask" type="button">
+                  <span class="d-inline-flex align-items-center gap-2"><i data-lucide="save"></i> Salvar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="/user/partials/sidebarUser.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/icons.js"></script>
+  <script src="/assets/js/userKanban.js"></script>
+</body>
+</html>

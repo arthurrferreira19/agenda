@@ -1,5 +1,6 @@
 const Event = require("../models/Event");
 const Room = require("../models/Room");
+const { createForUsers } = require("./notificationsController");
 
 function pickEvent(e) {
   return {
@@ -205,6 +206,11 @@ async function createEvent(req, res) {
       : `Link da reunião: ${finalMeet}`;
   }
 
+  const participantStatus = [
+    { userId: createdBy, status: "ACCEPTED", respondedAt: new Date() },
+    ...part.filter(pid => String(pid) !== String(createdBy)).map(pid => ({ userId: pid, status: "PENDING", respondedAt: null }))
+  ];
+
   const ev = await Event.create({
     title: String(title).trim(),
     description: finalDesc,
@@ -215,8 +221,23 @@ async function createEvent(req, res) {
     clientAddress: finalAddress,
     meetLink: finalMeet,
     participants: part,
+    participantStatus,
     createdBy
   });
+
+
+  // 🔔 Notificações: evento criado (criador + participantes)
+  {
+    const targets = uniqStrings([String(createdBy), ...part]);
+    await createForUsers({
+      userIds: targets,
+      type: "EVENT_CREATED",
+      title: "Novo evento criado",
+      message: `“${String(ev.title)}” foi agendado.`,
+      eventId: ev._id,
+      meta: { start: ev.start, end: ev.end, eventType: ev.eventType }
+    });
+  }
 
   res.status(201).json({ event: pickEvent(ev) });
 }
@@ -241,6 +262,16 @@ async function updateEvent(req, res) {
   const isAdmin = req.user?.role === "ADMIN";
   const isOwner = String(ev.createdBy) === String(req.user?.sub);
   if (!isAdmin && !isOwner) return res.status(403).json({ message: "Sem permissão." });
+  const before = {
+    title: ev.title,
+    start: ev.start,
+    end: ev.end,
+    eventType: ev.eventType,
+    roomId: ev.roomId ? String(ev.roomId) : null,
+    participants: (ev.participants || []).map(String)
+  };
+
+
 
   if (title !== undefined) ev.title = String(title).trim();
   if (description !== undefined) ev.description = String(description || "").trim();
@@ -332,6 +363,28 @@ async function updateEvent(req, res) {
   }
 
   await ev.save();
+
+  // 🔔 Notificações: evento atualizado (criador + participantes atuais + participantes anteriores)
+  {
+    const targets = uniqStrings([String(ev.createdBy), ...(ev.participants || []).map(String), ...(before.participants || [])]);
+    const changed = [];
+    if (before.title !== ev.title) changed.push("título");
+    if (+new Date(before.start) !== +new Date(ev.start) || +new Date(before.end) !== +new Date(ev.end)) changed.push("horário");
+    if (before.eventType !== ev.eventType) changed.push("tipo");
+    if (before.roomId !== (ev.roomId ? String(ev.roomId) : null)) changed.push("sala");
+
+    await createForUsers({
+      userIds: targets,
+      type: "EVENT_UPDATED",
+      title: "Evento atualizado",
+      message: changed.length
+        ? `“${String(ev.title)}” foi atualizado (${changed.join(", ")}).`
+        : `“${String(ev.title)}” foi atualizado.`,
+      eventId: ev._id,
+      meta: { start: ev.start, end: ev.end, eventType: ev.eventType, changed }
+    });
+  }
+
   res.json({ event: pickEvent(ev) });
 }
 
@@ -345,8 +398,127 @@ async function deleteEvent(req, res) {
   const isOwner = String(ev.createdBy) === String(req.user?.sub);
   if (!isAdmin && !isOwner) return res.status(403).json({ message: "Sem permissão." });
 
+
+  // 🔔 Notificações: evento cancelado (criador + participantes)
+  {
+    const targets = uniqStrings([String(ev.createdBy), ...(ev.participants || []).map(String)]);
+    await createForUsers({
+      userIds: targets,
+      type: "EVENT_DELETED",
+      title: "Evento cancelado",
+      message: `“${String(ev.title)}” foi cancelado.`,
+      eventId: ev._id,
+      meta: { start: ev.start, end: ev.end, eventType: ev.eventType }
+    });
+  }
+
   await Event.deleteOne({ _id: id });
   res.json({ ok: true });
 }
 
-module.exports = { listEvents, createEvent, updateEvent, deleteEvent };
+
+async function listInvites(req, res) {
+  const userId = String(req.user?.sub || "");
+  const now = new Date();
+  const events = await Event.find({
+    participantStatus: { $elemMatch: { userId: userId, status: "PENDING" } },
+    end: { $gt: now }
+  }).sort({ start: 1 });
+
+  res.json({ events: events.map(pickEvent) });
+}
+
+async function respondInvite(req, res) {
+  const { id } = req.params;
+  const { response } = req.body || {}; // ACCEPTED | DECLINED
+  const userId = String(req.user?.sub || "");
+  if (!["ACCEPTED", "DECLINED"].includes(String(response || ""))) {
+    return res.status(400).json({ message: "Resposta inválida." });
+  }
+
+  const ev = await Event.findById(id);
+  if (!ev) return res.status(404).json({ message: "Evento não encontrado." });
+
+  const ps = Array.isArray(ev.participantStatus) ? ev.participantStatus : [];
+  const idx = ps.findIndex(x => String(x.userId) === userId);
+  if (idx === -1) return res.status(403).json({ message: "Você não está convidado neste evento." });
+
+  ps[idx].status = response;
+  ps[idx].respondedAt = new Date();
+  ev.participantStatus = ps;
+
+  if (response === "DECLINED") {
+    ev.participants = (ev.participants || []).filter(p => String(p) !== userId);
+  } else {
+    // garante participante
+    const set = new Set((ev.participants || []).map(String));
+    set.add(userId);
+    ev.participants = Array.from(set);
+  }
+
+  ev.history = Array.isArray(ev.history) ? ev.history : [];
+  ev.history.push({ userId, action: "INVITE_RESPONSE", changes: { response } });
+
+  await ev.save();
+
+  // notifica o criador
+  await createForUsers({
+    userIds: [String(ev.createdBy)],
+    type: "INVITE_RESPONSE",
+    title: "Resposta de convite",
+    message: `Um participante respondeu: ${response === "ACCEPTED" ? "Aceitou" : "Recusou"} (“${ev.title}”).`,
+    eventId: ev._id
+  });
+
+  res.json({ ok: true });
+}
+
+async function listComments(req, res) {
+  const { id } = req.params;
+  const ev = await Event.findById(id).select("comments");
+  if (!ev) return res.status(404).json({ message: "Evento não encontrado." });
+  res.json({ comments: ev.comments || [] });
+}
+
+async function addComment(req, res) {
+  const { id } = req.params;
+  const { text } = req.body || {};
+  if (!text || !String(text).trim()) return res.status(400).json({ message: "Informe um comentário." });
+
+  const ev = await Event.findById(id);
+  if (!ev) return res.status(404).json({ message: "Evento não encontrado." });
+
+  const userId = req.user?.sub;
+  ev.comments = Array.isArray(ev.comments) ? ev.comments : [];
+  ev.comments.push({ userId, text: String(text).trim(), createdAt: new Date() });
+
+  ev.history = Array.isArray(ev.history) ? ev.history : [];
+  ev.history.push({ userId, action: "COMMENT_ADDED", changes: {} });
+
+  await ev.save();
+
+  // notifica criador + participantes
+  const targets = uniqStrings([String(ev.createdBy), ...(ev.participants || []).map(String)]);
+  await createForUsers({
+    userIds: targets,
+    type: "EVENT_COMMENT",
+    title: "Novo comentário em evento",
+    message: `Comentário adicionado em “${ev.title}”.`,
+    eventId: ev._id
+  });
+
+  res.status(201).json({ ok: true });
+}
+
+
+module.exports = {
+  listEvents,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  // Etapa 3
+  listInvites,
+  respondInvite,
+  listComments,
+  addComment,
+};

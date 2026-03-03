@@ -36,6 +36,22 @@
           <i data-lucide="calendar-days"></i>
           <span>Agenda</span>
         </a>
+
+        <a class="side-link" href="/user/agenda.html#notifs" id="sideNotifs">
+          <i data-lucide="bell"></i>
+          <span>Notificações</span>
+          <span class="ms-auto badge text-bg-danger d-none" id="sideNotifBadge"></span>
+        </a>
+
+        <a class="side-link ${isActive("settings.html")}" href="/user/settings.html">
+          <i data-lucide="settings"></i>
+          <span>Perfil & Preferências</span>
+        </a>
+
+        <a class="side-link ${isActive("kanban.html")}" href="/user/kanban.html">
+          <i data-lucide="columns-3"></i>
+          <span>Kanban</span>
+        </a>
       </div>
 
       <div class="side-footer">

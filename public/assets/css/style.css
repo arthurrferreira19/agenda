@@ -907,3 +907,95 @@ html, body { overflow-x: hidden; }
 /* Month columns selector */
 .month-cols-select{max-width:140px;}
 @media (max-width: 576px){.month-cols-select{max-width:120px;}}
+
+
+/* ===== User: Central do Dia ===== */
+.dash-card{border-radius:18px; box-shadow:0 10px 30px rgba(16,24,40,.06);} 
+.dash-ico{width:28px;height:28px;opacity:.9}
+.btn-wine{background:var(--wine,#7a1f3d);border-color:var(--wine,#7a1f3d);color:#fff}
+.btn-wine:hover{filter:brightness(.95);color:#fff}
+
+
+/* ========== Notifications ========== */
+.notif-item { border-radius: 16px; overflow: hidden; }
+.notif-item.is-read { opacity: .75; }
+.notif-dot { width: 10px; height: 10px; border-radius: 999px; margin-top: 6px; background: rgba(140, 30, 60, .9); box-shadow: 0 0 0 4px rgba(140,30,60,.12); flex: 0 0 auto; }
+.notif-dot.read { background: rgba(120,120,120,.5); box-shadow: 0 0 0 4px rgba(120,120,120,.12); }
+.badge-soft-success { background: rgba(25,135,84,.12); color: #198754; border: 1px solid rgba(25,135,84,.18); }
+.badge-soft-warning { background: rgba(255,193,7,.14); color: #b58100; border: 1px solid rgba(255,193,7,.22); }
+.badge-soft-danger  { background: rgba(220,53,69,.12); color: #dc3545; border: 1px solid rgba(220,53,69,.18); }
+.badge-soft-primary { background: rgba(13,110,253,.12); color: #0d6efd; border: 1px solid rgba(13,110,253,.18); }
+.badge-soft-info    { background: rgba(13,202,240,.14); color: #087990; border: 1px solid rgba(13,202,240,.22); }
+.badge-soft-secondary { background: rgba(108,117,125,.12); color: #6c757d; border: 1px solid rgba(108,117,125,.18); }
+
+
+
+/* ===== User Agenda Customization (KPIs/Filtros) ===== */
+.mh-collapsed { display: none !important; }
+
+.mh-customize-bar .btn.active {
+  border-color: rgba(139, 0, 60, .35);
+  box-shadow: 0 0 0 .2rem rgba(139, 0, 60, .10);
+}
+
+@media (max-width: 991px) {
+  /* KPIs viram "carrossel" horizontal */
+  #kpiSection .row.g-3 {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: .25rem;
+    scroll-snap-type: x mandatory;
+  }
+  #kpiSection .row.g-3 > [class*="col-"] {
+    min-width: 84%;
+    scroll-snap-align: start;
+  }
+
+  /* Filtros mais compactos */
+  #filtersSection .row.g-2 > [class*="col-"] {
+    margin-top: .25rem;
+  }
+}
+
+
+/* ===== User custom sections ===== */
+.mh-collapsed{display:none !important;}
+@media (max-width: 768px){
+  #kpiSection{overflow-x:auto; white-space:nowrap; padding-bottom: 6px;}
+  #kpiSection .col-12.col-md-6.col-xl-3{display:inline-block; width: 85%; max-width: 340px; vertical-align: top;}
+}
+
+/* ===== Modal (custom) ===== */
+.mh-modal-overlay{
+  position:fixed; inset:0; background:rgba(17,17,17,.55);
+  display:flex; align-items:center; justify-content:center;
+  padding:14px; z-index:1200;
+}
+.mh-modal-card{
+  width:min(920px, 100%);
+  max-height: calc(100vh - 28px);
+  background:#fff;
+  border-radius:18px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  overflow:hidden;
+}
+.mh-modal-header{
+  padding:14px 16px;
+  border-bottom:1px solid rgba(0,0,0,.08);
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+}
+.mh-modal-body{
+  padding:14px 16px;
+  overflow:auto;
+  max-height: calc(100vh - 120px);
+}
+.mh-notif-list{display:flex; flex-direction:column; gap:10px;}
+.mh-notif-item{
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:14px;
+  padding:12px 12px;
+  background:#fff;
+}
+.mh-notif-item.unread{border-color: rgba(145, 19, 44, .35); box-shadow: 0 8px 22px rgba(145, 19, 44, .08);}
+.mh-notif-title{font-weight:600;}
+.mh-notif-meta{font-size:12px; color:#6c757d;}

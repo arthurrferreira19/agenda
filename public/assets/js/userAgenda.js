@@ -26,6 +26,28 @@
   const viewWeekBtn = document.getElementById("viewWeek");
   const viewMonthBtn = document.getElementById("viewMonth");
 
+  // Dashboard + Filters
+  const dashNextTitle = document.getElementById("dashNextTitle");
+  const dashNextSub = document.getElementById("dashNextSub");
+  const dashWeekCount = document.getElementById("dashWeekCount");
+  const dashWeekPeak = document.getElementById("dashWeekPeak");
+  const dashFreeTitle = document.getElementById("dashFreeTitle");
+  const dashFreeSub = document.getElementById("dashFreeSub");
+  const dashAlertsTitle = document.getElementById("dashAlertsTitle");
+  const dashAlertsSub = document.getElementById("dashAlertsSub");
+
+  const evSearch = document.getElementById("evSearch");
+  const evRoom = document.getElementById("evRoom");
+  const evType = document.getElementById("evType");
+  const evScope = document.getElementById("evScope");
+  const btnClearFilters = document.getElementById("btnClearFilters");
+
+  // Google Calendar
+  const gcalStatus = document.getElementById("gcalStatus");
+  const gcalEmail = document.getElementById("gcalEmail");
+  const btnGcalConnect = document.getElementById("btnGcalConnect");
+  const btnGcalDisconnect = document.getElementById("btnGcalDisconnect");
+
   // Shells
   const weekDayShell = document.getElementById("weekDayShell");
   const monthShell = document.getElementById("monthShell");
@@ -118,11 +140,71 @@
   const dPerm = document.getElementById("dPerm");
 
   let VIEW = (window.matchMedia && window.matchMedia("(max-width: 991px)").matches) ? "DAY" : "WEEK"; // DAY | WEEK | MONTH
+  let FILTERS = { q: "", roomId: "", type: "", scope: "ALL" };
+  let FILTERED_EVENTS = [];
+
   let SELECTED_DAY_KEY = null;
   let anchor = new Date();
   let EVENTS = [];
   let ROOMS = [];
   let detailsEvent = null;
+  // ---------- Notificações ----------
+  async function refreshNotifBadge() {
+    try {
+      const r = await API.request("/api/notifications/unread-count", { auth: true });
+      const el = document.getElementById("notifBadge");
+      const elTop = document.getElementById("notifTopBadge");
+      const c = Number(r?.count || 0);
+      if (el) {
+        if (c > 0) { el.textContent = String(c); el.style.display = "inline-flex"; }
+        else { el.textContent = ""; el.style.display = "none"; }
+      }
+      if (elTop) {
+        if (c > 0) { elTop.textContent = String(c); elTop.style.display = "inline-flex"; }
+        else { elTop.textContent = ""; elTop.style.display = "none"; }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Cria lembretes (15/30/60min) automaticamente para eventos próximos
+  async function ensureReminders(events) {
+    try {
+      const now = new Date();
+      const userId = String(me?.id || "");
+
+      const involved = (ev) => {
+        const createdBy = String(ev.createdBy || "");
+        const parts = (ev.participants || []).map(String);
+        return createdBy === userId || parts.includes(userId);
+      };
+
+      const minsList = [15, 30, 60];
+
+      for (const ev of (events || [])) {
+        if (!ev?.start) continue;
+        if (!involved(ev)) continue;
+
+        const start = new Date(ev.start);
+        if (start <= now) continue;
+
+        const diffMin = Math.round((start.getTime() - now.getTime()) / 60000);
+
+        for (const mins of minsList) {
+          if (diffMin === mins) {
+            await API.request("/api/notifications/reminder", {
+              auth: true,
+              method: "POST",
+              body: { eventId: ev.id || ev._id, reminderMinutes: mins }
+            }).catch(() => {});
+          }
+        }
+      }
+
+      await refreshNotifBadge();
+    } catch { /* ignore */ }
+  }
+
+
 
   // ---------- Mobile / Helpers ----------
   const isMobile = () => window.matchMedia && window.matchMedia("(max-width: 991px)").matches;
@@ -357,14 +439,274 @@
     return { from, to };
   }
 
-  async function loadEvents() {
+  
+  /*__MH_DASH_HELPERS__*/
+  function normalizeStr(s) {
+    return String(s || "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+  }
+  function getRoomName(roomId) {
+    const r = (ROOMS || []).find(x => String(x.id) === String(roomId));
+    return r ? r.name : "";
+  }
+  function applyFilters(events) {
+    const q = normalizeStr(FILTERS.q);
+    const myId = String(me?.id || me?._id || "");
+    return (events || []).filter(ev => {
+      if (FILTERS.roomId && String(ev.roomId || "") !== String(FILTERS.roomId)) return false;
+      if (FILTERS.type && String(ev.eventType || "") !== String(FILTERS.type)) return false;
+
+      if (FILTERS.scope === "MINE") {
+        if (String(ev.createdBy || "") !== myId) return false;
+      } else if (FILTERS.scope === "PARTICIPATING") {
+        const arr = Array.isArray(ev.participants) ? ev.participants.map(String) : [];
+        if (!arr.includes(myId)) return false;
+      }
+
+      if (q) {
+        const hay = [
+          ev.title, ev.description,
+          getRoomName(ev.roomId),
+          ...(Array.isArray(ev.participants) ? ev.participants : [])
+        ].map(normalizeStr).join(" ");
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+  function updateFilteredAndRender() {
+    FILTERED_EVENTS = applyFilters(EVENTS);
+    renderDashboard(FILTERED_EVENTS);
+    if (VIEW === "MONTH") buildMonth();
+    else renderWeekDay();
+    window.MHIcons?.refresh?.();
+  }
+
+  function bindFiltersUI() {
+    const sync = () => {
+      FILTERS.q = String(evSearch?.value || "").trim();
+      FILTERS.roomId = String(evRoom?.value || "");
+      FILTERS.type = String(evType?.value || "");
+      FILTERS.scope = String(evScope?.value || "ALL");
+      localStorage.setItem("mh_user_filters", JSON.stringify(FILTERS));
+      updateFilteredAndRender();
+    };
+
+    // restore
+    try {
+      const saved = JSON.parse(localStorage.getItem("mh_user_filters") || "null");
+      if (saved && typeof saved === "object") FILTERS = { ...FILTERS, ...saved };
+    } catch (_) {}
+
+    if (evSearch) {
+      evSearch.value = FILTERS.q || "";
+      evSearch.addEventListener("input", () => sync());
+    }
+    if (evRoom) {
+      evRoom.value = FILTERS.roomId || "";
+      evRoom.addEventListener("change", () => sync());
+    }
+    if (evType) {
+      evType.value = FILTERS.type || "";
+      evType.addEventListener("change", () => sync());
+    }
+    if (evScope) {
+      evScope.value = FILTERS.scope || "ALL";
+      evScope.addEventListener("change", () => sync());
+    }
+
+    btnClearFilters?.addEventListener("click", () => {
+      FILTERS = { q: "", roomId: "", type: "", scope: "ALL" };
+      localStorage.removeItem("mh_user_filters");
+      if (evSearch) evSearch.value = "";
+      if (evRoom) evRoom.value = "";
+      if (evType) evType.value = "";
+      if (evScope) evScope.value = "ALL";
+      updateFilteredAndRender();
+    });
+  }
+
+  const UI_PREF_KEY = "mh_user_ui";
+  function getUIPrefs() {
+    try { return JSON.parse(localStorage.getItem(UI_PREF_KEY) || "{}") || {}; } catch(_) { return {}; }
+  }
+  function setUIPrefs(p) { localStorage.setItem(UI_PREF_KEY, JSON.stringify(p || {})); }
+
+  function getSectionVisible(key, defaultVisible = true) {
+    const prefs = getUIPrefs();
+    if (typeof prefs[key] === "boolean") return prefs[key];
+    return !!defaultVisible;
+  }
+
+  function setSectionVisible(key, visible) {
+    const prefs = getUIPrefs();
+    prefs[key] = !!visible;
+    setUIPrefs(prefs);
+  }
+
+  function applyCustomizationDefaults() {
+    const kpisVisible = getSectionVisible("kpis", true);
+    const filtersVisible = getSectionVisible("filters", true);
+
+    const kpiSection = document.getElementById("kpiSection");
+    const filtersSection = document.getElementById("filtersSection");
+
+    if (kpiSection) kpiSection.classList.toggle("mh-collapsed", !kpisVisible);
+    if (filtersSection) filtersSection.classList.toggle("mh-collapsed", !filtersVisible);
+
+    if (btnToggleKpis) btnToggleKpis.classList.toggle("active", kpisVisible);
+    if (btnToggleFilters) btnToggleFilters.classList.toggle("active", filtersVisible);
+  }
+
+  function bindCustomizationUI() {
+    const toggle = (key) => {
+      const nowVisible = getSectionVisible(key, true);
+      setSectionVisible(key, !nowVisible);
+      applyCustomizationDefaults();
+    };
+    btnToggleKpis?.addEventListener("click", () => toggle("kpis"));
+    btnToggleFilters?.addEventListener("click", () => toggle("filters"));
+  }
+
+  function computeConflicts(events) {
+    const evs = [...(events || [])].sort((a,b)=>a.start-b.start);
+    let conflicts = 0;
+    for (let i=0;i<evs.length;i++){
+      for (let j=i+1;j<evs.length;j++){
+        if (evs[j].start >= evs[i].end) break;
+        if (evs[j].start < evs[i].end) { conflicts++; break; }
+      }
+    }
+    return conflicts;
+  }
+  function renderDashboard(events) {
+    const now = new Date();
+    const startToday = startOfDay(now);
+    const endTomorrow = addDays(startToday, 2);
+
+    const upcoming = (events || [])
+      .filter(ev => ev.end > now && ev.start < endTomorrow)
+      .sort((a,b)=>a.start-b.start)[0];
+
+    if (dashNextTitle) {
+      if (upcoming) {
+        dashNextTitle.textContent = upcoming.title || "(Sem título)";
+        const when = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(upcoming.start);
+        dashNextSub.textContent = `${when}${getRoomName(upcoming.roomId) ? " • " + getRoomName(upcoming.roomId) : ""}`;
+      } else {
+        dashNextTitle.textContent = "Nenhum por agora";
+        dashNextSub.textContent = "Hoje e amanhã";
+      }
+    }
+
+    const offset = (anchor.getDay() + 6) % 7;
+    const weekStart = startOfDay(addDays(anchor, -offset));
+    const weekEnd = addDays(weekStart, 7);
+    const inWeek = (events || []).filter(ev => ev.start < weekEnd && ev.end > weekStart);
+
+    const byDay = [];
+    for (let d=0; d<7; d++){
+      const dt=addDays(weekStart,d);
+      const day0=startOfDay(dt);
+      const day1=addDays(day0,1);
+      const c=inWeek.filter(ev => ev.start < day1 && ev.end > day0).length;
+      byDay.push({dt,c});
+    }
+    const totalWeek = byDay.reduce((a,x)=>a+x.c,0);
+    if (dashWeekCount) dashWeekCount.textContent = `${totalWeek} evento(s)`;
+    if (dashWeekPeak) {
+      const peak = byDay.slice().sort((a,b)=>b.c-a.c)[0];
+      dashWeekPeak.textContent = peak ? `Pico: ${new Intl.DateTimeFormat("pt-BR",{weekday:"long"}).format(peak.dt)} (${peak.c})` : "—";
+    }
+
+    const workStartMin = 8*60, workEndMin = 18*60;
+    const todays = (events || [])
+      .filter(ev => ev.start < addDays(startToday,1) && ev.end > startToday)
+      .map(ev=>{
+        const s=Math.max(workStartMin, Math.floor((ev.start - startToday)/60000));
+        const e=Math.min(workEndMin, Math.ceil((ev.end - startToday)/60000));
+        return {s,e};
+      })
+      .filter(x=>x.e>x.s)
+      .sort((a,b)=>a.s-b.s);
+
+    const freeSlots=[];
+    let cursor=workStartMin;
+    for (const b of todays){
+      if (b.s>cursor) freeSlots.push([cursor,b.s]);
+      cursor=Math.max(cursor,b.e);
+    }
+    if (cursor<workEndMin) freeSlots.push([cursor,workEndMin]);
+
+    const fmtMin = (m)=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+    if (dashFreeTitle) {
+      if (freeSlots.length){
+        const top=freeSlots.slice().sort((a,b)=>(b[1]-b[0])-(a[1]-a[0]))[0];
+        dashFreeTitle.textContent = `${fmtMin(top[0])}–${fmtMin(top[1])}`;
+        dashFreeSub.textContent = `Hoje • ${freeSlots.length} janela(s)`;
+      } else {
+        dashFreeTitle.textContent="Sem janela";
+        dashFreeSub.textContent="Hoje está cheio";
+      }
+    }
+
+    const conflicts = computeConflicts((events || []).filter(ev => ev.start < addDays(startToday,1) && ev.end > startToday));
+    const next30 = upcoming && (upcoming.start - now) <= 30*60000 && (upcoming.start - now) > 0;
+    let aTitle="OK", aSub="Sem alertas";
+    if (conflicts>0 && next30){
+      aTitle = "2 alertas";
+      aSub = `${conflicts} conflito(s) hoje • começa em até 30min`;
+    } else if (conflicts>0){
+      aTitle = `${conflicts} conflito(s)`;
+      aSub = "Verifique o horário de hoje";
+    } else if (next30){
+      aTitle = "Começa em 30 min";
+      aSub = upcoming.title || "Evento";
+    }
+    if (dashAlertsTitle) dashAlertsTitle.textContent=aTitle;
+    if (dashAlertsSub) dashAlertsSub.textContent=aSub;
+  }
+  function fillRoomFilter() {
+    if (!evRoom) return;
+    const current = evRoom.value;
+    evRoom.innerHTML = '<option value="">Todas</option>';
+    (ROOMS||[]).forEach(r=>{
+      const opt=document.createElement("option");
+      opt.value=String(r.id);
+      opt.textContent=r.name;
+      evRoom.appendChild(opt);
+    });
+    if (current) evRoom.value=current;
+  }
+  async function refreshGoogleStatus() {
+    if (!gcalStatus) return;
+    try{
+      const st = await API.request("/api/google/status", { auth:true });
+      const connected = !!st.connected;
+      gcalStatus.textContent = connected ? "Conectado" : "Não conectado";
+      gcalStatus.className = connected ? "badge text-bg-success" : "badge text-bg-light border";
+      if (gcalEmail) gcalEmail.textContent = connected && st.email ? st.email : "";
+      if (btnGcalConnect) btnGcalConnect.style.display = connected ? "none" : "";
+      if (btnGcalDisconnect) btnGcalDisconnect.style.display = connected ? "" : "none";
+    }catch(e){
+      gcalStatus.textContent = "indisponível";
+      gcalStatus.className = "badge text-bg-warning";
+      if (gcalEmail) gcalEmail.textContent = "";
+      if (btnGcalConnect) btnGcalConnect.style.display = "none";
+      if (btnGcalDisconnect) btnGcalDisconnect.style.display = "none";
+    }
+  }
+
+async function loadEvents() {
     const { from, to } = getRange();
+
     try {
       showState("", "");
+
       if (rangeLabel) {
-        rangeLabel.textContent = VIEW === "MONTH"
-          ? new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(anchor)
-          : fmtRange(from, addDays(to, -1));
+        rangeLabel.textContent =
+          VIEW === "MONTH"
+            ? new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(anchor)
+            : fmtRange(from, addDays(to, -1));
       }
 
       const data = await API.request(
@@ -372,11 +714,15 @@
         { auth: true }
       );
 
-      EVENTS = (data.events || []).map(ev => ({
+      EVENTS = (data?.events || []).map((ev) => ({
         ...ev,
         start: new Date(ev.start),
-        end: new Date(ev.end)
+        end: new Date(ev.end),
       }));
+
+      // 🔔 Lembretes e badge de notificações (não bloqueia a renderização se falhar)
+      try { await ensureReminders(EVENTS); } catch (_) {}
+
     } catch (e) {
       if (e?.status === 401) {
         API.clearToken();
@@ -384,7 +730,7 @@
         location.href = "/user/login.html";
         return;
       }
-      showState("danger", e.message || "Erro ao carregar eventos.");
+      showState("danger", e?.message || "Erro ao carregar eventos.");
       EVENTS = [];
     }
   }
@@ -477,7 +823,7 @@
       const day1 = addDays(day0, 1);
 
       const slices = [];
-      for (const ev of EVENTS) {
+      for (const ev of FILTERED_EVENTS) {
         if (!(ev.start < day1 && ev.end > day0)) continue;
 
         const s = new Date(Math.max(ev.start.getTime(), day0.getTime()));
@@ -664,7 +1010,7 @@
 
     // mapa de eventos por dia (intersecta)
     const map = new Map();
-    for (const ev of EVENTS) {
+    for (const ev of FILTERED_EVENTS) {
       const evStartDay = startOfDay(ev.start);
       const evEnd = new Date(ev.end);
       const endDay = startOfDay(evEnd);
@@ -1262,10 +1608,150 @@
   // ---------- Main ----------
   async function refresh() {
     await loadEvents();
+    FILTERED_EVENTS = applyFilters(EVENTS);
+    renderDashboard(FILTERED_EVENTS);
     if (VIEW === "MONTH") buildMonth();
     else renderWeekDay();
     window.MHIcons?.refresh?.();
   }
+
+  // ===== Notificações (modal) =====
+  const notifModal = document.getElementById("notifModal");
+  const btnCloseNotif = document.getElementById("btnCloseNotif");
+  const notifList = document.getElementById("notifList");
+  const notifEmpty = document.getElementById("notifEmpty");
+  const notifSearch = document.getElementById("notifSearch");
+  const btnNotifTabAll = document.getElementById("btnNotifTabAll");
+  const btnNotifTabUnread = document.getElementById("btnNotifTabUnread");
+  const btnNotifMarkAll = document.getElementById("btnNotifMarkAll");
+  const notifModalSub = document.getElementById("notifModalSub");
+
+  let NOTIF_TAB = "ALL";
+  let NOTIF_Q = "";
+
+  function escHtml(s){
+    return String(s||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+  }
+
+  function openNotifModal() {
+    if (!notifModal) return;
+    notifModal.classList.remove("d-none");
+    document.body.style.overflow = "hidden";
+    loadNotificationsList();
+  }
+
+  function closeNotifModal() {
+    if (!notifModal) return;
+    notifModal.classList.add("d-none");
+    document.body.style.overflow = "";
+  }
+
+  async function fetchUnreadCount() {
+    try {
+      const d = await API.request("/api/notifications/unread-count", { auth: true });
+      const n = Number(d?.count || 0);
+      if (notifTopBadge) {
+        notifTopBadge.style.display = n > 0 ? "" : "none";
+        notifTopBadge.textContent = String(n);
+      }
+      const sb = document.getElementById("sideNotifBadge");
+      if (sb) {
+        sb.classList.toggle("d-none", !(n > 0));
+        sb.textContent = String(n);
+      }
+      return n;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  function formatWhen(dt){
+    try { return new Intl.DateTimeFormat("pt-BR",{dateStyle:"short", timeStyle:"short"}).format(new Date(dt)); }
+    catch(_){ return ""; }
+  }
+
+  async function loadNotificationsList() {
+    if (!notifList) return;
+    notifList.innerHTML = "";
+    notifEmpty?.classList.add("d-none");
+
+    const unread = await fetchUnreadCount();
+    if (notifModalSub) notifModalSub.textContent = unread > 0 ? `${unread} não lida(s)` : "Tudo em dia";
+
+    const url = NOTIF_TAB === "UNREAD" ? "/api/notifications?unread=1" : "/api/notifications";
+    const data = await API.request(url, { auth: true });
+    let items = Array.isArray(data?.items) ? data.items : [];
+    if (NOTIF_Q) {
+      const q = NOTIF_Q.toLowerCase();
+      items = items.filter(n => String(n.title||"").toLowerCase().includes(q) || String(n.message||"").toLowerCase().includes(q));
+    }
+
+    if (!items.length) {
+      notifEmpty?.classList.remove("d-none");
+      return;
+    }
+
+    notifList.innerHTML = items.map(n => {
+      const unreadCls = n.readAt ? "" : "unread";
+      return `
+        <div class="mh-notif-item ${unreadCls}">
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="flex-grow-1">
+              <div class="mh-notif-title">${escHtml(n.title || "Notificação")}</div>
+              <div class="small">${escHtml(n.message || "")}</div>
+              <div class="mh-notif-meta mt-1">${formatWhen(n.createdAt)}</div>
+            </div>
+            <div class="d-flex flex-column gap-2">
+              ${n.readAt ? "" : `<button class="btn btn-sm btn-outline-secondary" data-markread="${n._id}">
+                <span class="d-inline-flex align-items-center gap-1"><i data-lucide="check"></i> Lida</span>
+              </button>`}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    notifList.querySelectorAll("[data-markread]").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const id = btn.getAttribute("data-markread");
+        if (!id) return;
+        await API.request(`/api/notifications/${id}/read`, { auth:true, method:"POST" });
+        await loadNotificationsList();
+      });
+    });
+
+    window.MHIcons?.refresh?.();
+  }
+
+  function bindNotifUI() {
+    btnNotif?.addEventListener("click", openNotifModal);
+    btnCloseNotif?.addEventListener("click", closeNotifModal);
+    notifModal?.addEventListener("click", (e)=>{ if (e.target === notifModal) closeNotifModal(); });
+
+    btnNotifTabAll?.addEventListener("click", ()=>{
+      NOTIF_TAB="ALL";
+      btnNotifTabAll.classList.add("active");
+      btnNotifTabUnread.classList.remove("active");
+      loadNotificationsList();
+    });
+    btnNotifTabUnread?.addEventListener("click", ()=>{
+      NOTIF_TAB="UNREAD";
+      btnNotifTabUnread.classList.add("active");
+      btnNotifTabAll.classList.remove("active");
+      loadNotificationsList();
+    });
+    notifSearch?.addEventListener("input", ()=>{
+      NOTIF_Q = String(notifSearch.value||"").trim();
+      loadNotificationsList();
+    });
+    btnNotifMarkAll?.addEventListener("click", async ()=>{
+      await API.request("/api/notifications/mark-all-read", { auth:true, method:"POST" });
+      await loadNotificationsList();
+    });
+
+    if (location.hash === "#notifs") setTimeout(openNotifModal, 200);
+  }
+
 
   async function init() {
     // Controle: quantos dias por linha no mês (7/14/21)
@@ -1283,7 +1769,16 @@
 
     await loadRooms();
     await loadMembers();
+
+    bindFiltersUI();
+    bindCustomizationUI();
+    applyCustomizationDefaults();
+    bindNotifUI();
+    fetchUnreadCount();
     await refresh();
+    await refreshNotifBadge();
+    setInterval(refreshNotifBadge, 30000);
+
   }
 
   init();

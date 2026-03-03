@@ -10,10 +10,39 @@ const userSchema = new mongoose.Schema(
 
     role: { type: String, enum: ["ADMIN", "USER", "RESPONSAVEL"], default: "USER" },
 
+    // Preferências do usuário (Etapa 3)
+    preferences: {
+      timezone: { type: String, default: "America/Sao_Paulo" },
+      workHours: {
+        start: { type: String, default: "08:00" },
+        end: { type: String, default: "18:00" }
+      },
+      reminders: { type: [Number], default: [15, 30, 60] }
+    },
+
+    ui: {
+      showKpis: { type: Boolean, default: true },
+      showFilters: { type: Boolean, default: true }
+    },
+
+    // Google Calendar tokens
+    google: {
+      connected: { type: Boolean, default: false },
+      email: { type: String, default: "" },
+      accessToken: { type: String, default: "" },
+      refreshToken: { type: String, default: "" },
+      scope: { type: String, default: "" },
+      tokenType: { type: String, default: "" },
+      expiryDate: { type: Number, default: 0 }
+    },
+
     isActive: { type: Boolean, default: true },
     lastLoginAt: { type: Date, default: null }
   },
-  { timestamps: true }
+    {
+    timestamps: true
+  }
+
 );
 
 userSchema.pre("save", async function () {

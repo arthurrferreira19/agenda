@@ -5,6 +5,11 @@ const ctrl = require("../controllers/usersController");
 // ✅ PARA AGENDA: qualquer logado pode ver membros ativos
 router.get("/members", authRequired, ctrl.listMembers);
 
+// Etapa 3: perfil/preferências do próprio usuário
+router.get("/me", authRequired, ctrl.getMe);
+router.put("/me", authRequired, ctrl.updateMe);
+router.patch("/me/password", authRequired, ctrl.changeMyPassword);
+
 // ✅ CRUD de usuários: só ADMIN
 router.use(authRequired, requireRole("ADMIN"));
 

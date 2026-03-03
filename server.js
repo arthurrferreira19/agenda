@@ -12,6 +12,9 @@ const authRoutes = require("./src/routes/authRoutes");
 const usersRoutes = require("./src/routes/usersRoutes");
 const roomsRoutes = require("./src/routes/roomsRoutes");
 const eventsRoutes = require("./src/routes/eventsRoutes");
+const notificationsRoutes = require("./src/routes/notificationsRoutes");
+const googleRoutes = require("./src/routes/googleRoutes");
+const holidaysRoutes = require("./src/routes/holidaysRoutes");
 
 const app = express();
 
@@ -48,6 +51,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/rooms", roomsRoutes);
 app.use("/api/events", eventsRoutes);
+app.use("/api/notifications", notificationsRoutes);
+app.use("/api/google", googleRoutes);
+app.use("/api/holidays", holidaysRoutes);
 
 // Healthcheck
 app.get("/health", (req, res) => res.json({ ok: true }));

@@ -69,6 +69,14 @@
             </span>
           </button>
 
+
+          <button class="btn btn-outline-secondary position-relative" type="button" id="btnNotif">
+            <span class="d-inline-flex align-items-center gap-2">
+              <i data-lucide="bell"></i> Notificações
+            </span>
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notifTopBadge" style="display:none;"></span>
+          </button>
+
           <button class="btn btn-wine" id="btnNewEvent">
             <span class="d-inline-flex align-items-center gap-2">
               <i data-lucide="plus"></i> Novo evento
@@ -76,6 +84,139 @@
           </button>
         </div>
       </div>
+      <!-- Central do Dia + Filtros -->
+      <section class="container-fluid mt-3" id="dashAndFilters">
+        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-2 mh-customize-bar">
+          <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="btnToggleKpis">
+              <span class="d-inline-flex align-items-center gap-2"><i data-lucide="layout-dashboard"></i> KPIs</span>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="btnToggleFilters">
+              <span class="d-inline-flex align-items-center gap-2"><i data-lucide="sliders-horizontal"></i> Filtros</span>
+            </button>
+          </div>
+          <div class="small text-muted d-none d-md-block">Personalize sua visão: mostre/oculte KPIs e filtros</div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12" id="kpiSection">
+            <div class="row g-3">
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="card dash-card h-100">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                      <div>
+                        <div class="text-muted small">Próximos</div>
+                        <div class="h5 mb-0" id="dashNextTitle">—</div>
+                        <div class="small text-muted" id="dashNextSub">—</div>
+                      </div>
+                      <i data-lucide="calendar-clock" class="dash-ico"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="card dash-card h-100">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                      <div>
+                        <div class="text-muted small">Minha semana</div>
+                        <div class="h5 mb-0" id="dashWeekCount">0 eventos</div>
+                        <div class="small text-muted" id="dashWeekPeak">—</div>
+                      </div>
+                      <i data-lucide="bar-chart-3" class="dash-ico"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="card dash-card h-100">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                      <div>
+                        <div class="text-muted small">Horários livres</div>
+                        <div class="h5 mb-0" id="dashFreeTitle">—</div>
+                        <div class="small text-muted" id="dashFreeSub">Sugestões hoje</div>
+                      </div>
+                      <i data-lucide="clock" class="dash-ico"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="card dash-card h-100">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                      <div>
+                        <div class="text-muted small">Alertas</div>
+                        <div class="h5 mb-0" id="dashAlertsTitle">—</div>
+                        <div class="small text-muted" id="dashAlertsSub">Sem alertas</div>
+                      </div>
+                      <i data-lucide="bell" class="dash-ico"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12" id="filtersSection">
+            <div class="card dash-card">
+              <div class="card-body">
+                <div class="row g-2 align-items-end">
+                  <div class="col-12 col-lg-4">
+                    <label class="form-label small text-muted mb-1">Buscar</label>
+                    <input type="search" class="form-control" id="evSearch" placeholder="Título, sala, participante...">
+                  </div>
+                  <div class="col-6 col-lg-2">
+                    <label class="form-label small text-muted mb-1">Sala</label>
+                    <select class="form-select" id="evRoom"><option value="">Todas</option></select>
+                  </div>
+                  <div class="col-6 col-lg-2">
+                    <label class="form-label small text-muted mb-1">Tipo</label>
+                    <select class="form-select" id="evType">
+                      <option value="">Todos</option>
+                      <option value="MEETING">Reunião</option>
+                      <option value="VISIT">Visita</option>
+                      <option value="TASK">Tarefa</option>
+                      <option value="OTHER">Outro</option>
+                    </select>
+                  </div>
+                  <div class="col-12 col-lg-2">
+                    <label class="form-label small text-muted mb-1">Visão</label>
+                    <select class="form-select" id="evScope">
+                      <option value="ALL" selected>Todos eventos</option>
+                      <option value="MINE">Somente meus</option>
+                      <option value="PARTICIPATING">Que participo</option>
+                    </select>
+                  </div>
+                  <div class="col-12 col-lg-2 d-flex gap-2">
+                    <button class="btn btn-outline-secondary w-100" id="btnClearFilters" type="button">
+                      <span class="d-inline-flex align-items-center gap-2"><i data-lucide="x-circle"></i> Limpar</span>
+                    </button>
+                  </div>
+                </div>
+                <hr class="my-3">
+                <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                  <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <span class="text-muted small">Google Calendar:</span>
+                    <span class="badge text-bg-light border" id="gcalStatus">verificando...</span>
+                    <span class="text-muted small" id="gcalEmail"></span>
+                  </div>
+                  <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-wine" id="btnGcalConnect" type="button">
+                      <span class="d-inline-flex align-items-center gap-2"><i data-lucide="link"></i> Conectar</span>
+                    </button>
+                    <button class="btn btn-outline-danger" id="btnGcalDisconnect" type="button" style="display:none;">
+                      <span class="d-inline-flex align-items-center gap-2"><i data-lucide="unlink"></i> Desconectar</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
 
       <div class="mt-3" id="stateShell"></div>
 
@@ -298,6 +439,45 @@
 
           <div class="mt-2 small text-muted" id="dPerm">-</div>
         </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Notificações (Modal custom - sem Bootstrap JS) -->
+  <div class="mh-modal-overlay d-none" id="notifModal">
+    <div class="mh-modal-card">
+      <div class="mh-modal-header">
+        <div class="d-flex align-items-center gap-2">
+          <i data-lucide="bell"></i>
+          <div>
+            <div class="fw-semibold">Notificações</div>
+            <div class="small text-muted" id="notifModalSub">—</div>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" type="button" id="btnCloseNotif">
+          <span class="d-inline-flex align-items-center gap-1"><i data-lucide="x"></i> Fechar</span>
+        </button>
+      </div>
+
+      <div class="mh-modal-body">
+        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-2">
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <button class="btn btn-sm btn-wine" type="button" id="btnNotifMarkAll">
+              <span class="d-inline-flex align-items-center gap-1"><i data-lucide="check-check"></i> Marcar todas como lidas</span>
+            </button>
+            <div class="btn-group btn-group-sm" role="group">
+              <button class="btn btn-outline-secondary active" type="button" id="btnNotifTabAll">Todas</button>
+              <button class="btn btn-outline-secondary" type="button" id="btnNotifTabUnread">Não lidas</button>
+            </div>
+          </div>
+          <div class="d-flex gap-2">
+            <input class="form-control form-control-sm" type="search" placeholder="Buscar..." id="notifSearch" style="width: 220px;">
+          </div>
+        </div>
+
+        <div id="notifList" class="mh-notif-list"></div>
+        <div class="text-center text-muted small py-3 d-none" id="notifEmpty">Sem notificações.</div>
       </div>
     </div>
   </div>
